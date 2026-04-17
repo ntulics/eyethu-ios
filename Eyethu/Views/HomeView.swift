@@ -21,8 +21,8 @@ struct HomeView: View {
                 }
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("Eyethu")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     if let user = store.currentUser {
@@ -64,6 +64,13 @@ struct HomeView: View {
     private var scrollContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+
+                // App title
+                Text("eyethu")
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 4)
 
                 // Error banner
                 if let err = store.error {
