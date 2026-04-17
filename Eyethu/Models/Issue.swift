@@ -2,39 +2,46 @@ import Foundation
 import CoreLocation
 import SwiftUI
 
-// Only the 4 types the backend supports
 enum IssueType: String, CaseIterable, Codable {
-    case pothole       = "pothole"
-    case waterLeak     = "water_leak"
-    case powerOutage   = "power_outage"
-    case streetlight   = "streetlight"
+    case pothole        = "pothole"
+    case waterLeak      = "water_leak"
+    case powerOutage    = "power_outage"
+    case streetlight    = "streetlight"
+    case illegalDumping = "illegal_dumping"
+    case trafficLights  = "traffic_lights"
 
     var displayName: String {
         switch self {
-        case .pothole:     return "Pothole"
-        case .waterLeak:   return "Water Leak"
-        case .powerOutage: return "Power Outage"
-        case .streetlight: return "Streetlight"
+        case .pothole:        return "Pothole"
+        case .waterLeak:      return "Water Leak"
+        case .powerOutage:    return "Power Outage"
+        case .streetlight:    return "Streetlight"
+        case .illegalDumping: return "Illegal Dumping"
+        case .trafficLights:  return "Traffic Lights"
         }
     }
 
     // SF Symbol — matches the spirit of the web app emoji icons
     var icon: String {
         switch self {
-        case .pothole:     return "triangle.fill"
-        case .waterLeak:   return "drop.fill"
-        case .powerOutage: return "bolt.fill"
-        case .streetlight: return "lightbulb.fill"
+        case .pothole:        return "triangle.fill"
+        case .waterLeak:      return "drop.fill"
+        case .powerOutage:    return "bolt.fill"
+        case .streetlight:    return "lightbulb.fill"
+        case .illegalDumping: return "trash.fill"
+        case .trafficLights:  return "car.2.fill"
         }
     }
 
     // Exact hex colours from the web app (lib/types.ts ISSUE_COLORS)
     var color: Color {
         switch self {
-        case .pothole:     return Color(hex: "#FF4444")
-        case .waterLeak:   return Color(hex: "#3B82F6")
-        case .powerOutage: return Color(hex: "#FFB612")
-        case .streetlight: return Color(hex: "#F97316")
+        case .pothole:        return Color(hex: "#FF4444")
+        case .waterLeak:      return Color(hex: "#3B82F6")
+        case .powerOutage:    return Color(hex: "#FFB612")
+        case .streetlight:    return Color(hex: "#F97316")
+        case .illegalDumping: return Color(hex: "#22C55E")
+        case .trafficLights:  return Color(hex: "#A855F7")
         }
     }
 }
