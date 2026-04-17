@@ -1,6 +1,5 @@
 import SwiftUI
 import MapKit
-import PhotosUI
 import CoreLocation
 
 struct ReportIssueView: View {
@@ -13,8 +12,10 @@ struct ReportIssueView: View {
     @State private var latitude: Double? = nil
     @State private var longitude: Double? = nil
     @State private var municipality: String? = nil
-    @State private var selectedPhoto: PhotosPickerItem? = nil
     @State private var photoData: Data? = nil
+    @State private var showImageSourcePicker = false
+    @State private var showCamera = false
+    @State private var showLibrary = false
     @State private var step = 0
     @State private var isSubmitting = false
     @State private var uploadProgress: String? = nil
@@ -156,28 +157,55 @@ struct ReportIssueView: View {
     private var photoStep: some View {
         VStack(alignment: .leading, spacing: 16) {
             stepHeader(title: "Add a photo", subtitle: "A photo helps the council assess and fix the issue faster. Optional.")
-            PhotosPicker(selection: $selectedPhoto, matching: .images) {
+
+            Button {
+                showImageSourcePicker = true
+            } label: {
                 ZStack {
                     RoundedRectangle(cornerRadius: 14)
                         .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [8]))
                         .foregroundStyle(Color.teal.opacity(0.5))
-                        .frame(height: 180)
+                        .frame(height: 200)
 
                     if let data = photoData, let uiImage = UIImage(data: data) {
                         Image(uiImage: uiImage)
                             .resizable().scaledToFill()
-                            .frame(height: 180)
+                            .frame(height: 200)
                             .clipShape(RoundedRectangle(cornerRadius: 14))
+                            .overlay(alignment: .topTrailing) {
+                                Image(systemName: "pencil.circle.fill")
+                                    .font(.title2)
+                                    .foregroundStyle(.white)
+                                    .shadow(radius: 4)
+                                    .padding(10)
+                            }
                     } else {
                         VStack(spacing: 10) {
                             Image(systemName: "camera.fill").font(.largeTitle).foregroundStyle(.teal)
-                            Text("Tap to add photo").font(.subheadline).foregroundStyle(.secondary)
+                            Text("Take photo or choose from library")
+                                .font(.subheadline).foregroundStyle(.secondary)
                         }
                     }
                 }
             }
-            .onChange(of: selectedPhoto) {
-                Task { photoData = try? await selectedPhoto?.loadTransferable(type: Data.self) }
+            .buttonStyle(.plain)
+            .confirmationDialog("Add Photo", isPresented: $showImageSourcePicker, titleVisibility: .visible) {
+                Button("Take Photo") { showCamera = true }
+                Button("Choose from Library") { showLibrary = true }
+                if photoData != nil {
+                    Button("Remove Photo", role: .destructive) { photoData = nil }
+                }
+                Button("Cancel", role: .cancel) {}
+            }
+            .sheet(isPresented: $showCamera) {
+                CameraPickerView { image in
+                    photoData = image.jpegData(compressionQuality: 0.8)
+                }
+            }
+            .sheet(isPresented: $showLibrary) {
+                PhotoLibraryPickerView { data in
+                    photoData = data
+                }
             }
         }
     }
