@@ -47,23 +47,8 @@ struct IssueRowView: View {
         .padding(.vertical, 4)
     }
 
-    private var iconBackground: Color {
-        switch issue.type {
-        case .pothole:     return .orange.opacity(0.12)
-        case .waterLeak:   return .blue.opacity(0.12)
-        case .powerOutage: return .yellow.opacity(0.15)
-        case .streetlight: return .purple.opacity(0.12)
-        }
-    }
-
-    private var iconColor: Color {
-        switch issue.type {
-        case .pothole:     return .orange
-        case .waterLeak:   return .blue
-        case .powerOutage: return .yellow
-        case .streetlight: return .purple
-        }
-    }
+    private var iconBackground: Color { issue.type.color.opacity(0.12) }
+    private var iconColor: Color      { issue.type.color }
 }
 
 extension Date {

@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import SwiftUI
 
 // Only the 4 types the backend supports
 enum IssueType: String, CaseIterable, Codable {
@@ -17,12 +18,23 @@ enum IssueType: String, CaseIterable, Codable {
         }
     }
 
+    // SF Symbol — matches the spirit of the web app emoji icons
     var icon: String {
         switch self {
-        case .pothole:     return "road.lanes"
+        case .pothole:     return "triangle.fill"
         case .waterLeak:   return "drop.fill"
-        case .powerOutage: return "bolt.slash.fill"
-        case .streetlight: return "lightbulb.slash.fill"
+        case .powerOutage: return "bolt.fill"
+        case .streetlight: return "lightbulb.fill"
+        }
+    }
+
+    // Exact hex colours from the web app (lib/types.ts ISSUE_COLORS)
+    var color: Color {
+        switch self {
+        case .pothole:     return Color(hex: "#FF4444")
+        case .waterLeak:   return Color(hex: "#3B82F6")
+        case .powerOutage: return Color(hex: "#FFB612")
+        case .streetlight: return Color(hex: "#F97316")
         }
     }
 }
@@ -103,4 +115,16 @@ struct DailyCount: Identifiable {
     let weekday: String
     let count: Int
     let hasReport: Bool
+}
+
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let r = Double((int >> 16) & 0xFF) / 255
+        let g = Double((int >>  8) & 0xFF) / 255
+        let b = Double( int        & 0xFF) / 255
+        self.init(red: r, green: g, blue: b)
+    }
 }

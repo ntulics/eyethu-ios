@@ -369,14 +369,7 @@ struct TypeCard: View {
     let isSelected: Bool
     let action: () -> Void
 
-    private var cardColor: Color {
-        switch type {
-        case .pothole:     return .orange
-        case .waterLeak:   return .blue
-        case .powerOutage: return .yellow
-        case .streetlight: return .purple
-        }
-    }
+    private var cardColor: Color { type.color }
 
     var body: some View {
         Button(action: action) {

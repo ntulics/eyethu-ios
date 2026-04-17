@@ -59,7 +59,7 @@ struct IssueMapPin: View {
 
     private var pinColor: Color {
         switch issue.status {
-        case .open:       return .orange
+        case .open:       return issue.type.color
         case .inProgress: return .teal
         case .resolved:   return .green
         }

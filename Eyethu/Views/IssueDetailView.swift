@@ -171,9 +171,9 @@ struct IssueDetailView: View {
 
     private func statusColor(_ s: IssueStatus) -> Color {
         switch s {
-        case .open: return .orange
+        case .open:       return issue.type.color
         case .inProgress: return .teal
-        case .resolved: return .green
+        case .resolved:   return .green
         }
     }
 
@@ -196,14 +196,7 @@ struct IssueDetailView: View {
         }
     }
 
-    private var typeColor: Color {
-        switch issue.type {
-        case .pothole:     return .orange
-        case .waterLeak:   return .blue
-        case .powerOutage: return .yellow
-        case .streetlight: return .purple
-        }
-    }
+    private var typeColor: Color { issue.type.color }
 }
 
 struct MetaItem: View {
