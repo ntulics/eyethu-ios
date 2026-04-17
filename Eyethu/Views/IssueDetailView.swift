@@ -13,22 +13,25 @@ struct IssueDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
 
-                // Hero placeholder
-                ZStack {
-                    Rectangle()
-                        .fill(LinearGradient(
-                            colors: [typeColor.opacity(0.3), typeColor.opacity(0.1)],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        ))
-                        .frame(height: 220)
-                    VStack(spacing: 12) {
-                        Image(systemName: issue.type.icon)
-                            .font(.system(size: 60, weight: .thin))
-                            .foregroundStyle(typeColor.opacity(0.6))
-                        Text("No photo attached")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                // Hero image (real photo or placeholder)
+                if let urlString = issue.imageURL, let url = URL(string: urlString) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image.resizable().scaledToFill()
+                                .frame(maxWidth: .infinity).frame(height: 240)
+                                .clipped()
+                        case .failure:
+                            heroPlaceholder
+                        default:
+                            ZStack {
+                                Rectangle().fill(Color(.systemGray5)).frame(height: 240)
+                                ProgressView()
+                            }
+                        }
                     }
+                } else {
+                    heroPlaceholder
                 }
 
                 VStack(alignment: .leading, spacing: 16) {
@@ -171,6 +174,25 @@ struct IssueDetailView: View {
         case .open: return .orange
         case .inProgress: return .teal
         case .resolved: return .green
+        }
+    }
+
+    private var heroPlaceholder: some View {
+        ZStack {
+            Rectangle()
+                .fill(LinearGradient(
+                    colors: [typeColor.opacity(0.3), typeColor.opacity(0.1)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                ))
+                .frame(height: 220)
+            VStack(spacing: 12) {
+                Image(systemName: issue.type.icon)
+                    .font(.system(size: 60, weight: .thin))
+                    .foregroundStyle(typeColor.opacity(0.6))
+                Text("No photo attached")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 

@@ -78,7 +78,8 @@ class IssueStore: ObservableObject {
         latitude: Double?,
         longitude: Double?,
         municipality: String?,
-        streetAddress: String?
+        streetAddress: String?,
+        imageURL: String? = nil
     ) async throws -> CreateIssueResult {
         let result = try await APIService.shared.createIssue(
             type: type,
@@ -86,7 +87,8 @@ class IssueStore: ObservableObject {
             latitude: latitude,
             longitude: longitude,
             municipality: municipality,
-            streetAddress: streetAddress
+            streetAddress: streetAddress,
+            imageURL: imageURL
         )
         // Refresh the list so the new issue appears immediately
         await loadIssues()

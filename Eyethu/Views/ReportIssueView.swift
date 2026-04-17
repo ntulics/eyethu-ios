@@ -17,6 +17,7 @@ struct ReportIssueView: View {
     @State private var photoData: Data? = nil
     @State private var step = 0
     @State private var isSubmitting = false
+    @State private var uploadProgress: String? = nil
     @State private var submitResult: CreateIssueResult? = nil
     @State private var submitError: String? = nil
     @State private var isGeolocating = false
@@ -247,7 +248,14 @@ struct ReportIssueView: View {
             } label: {
                 Group {
                     if isSubmitting {
-                        ProgressView().tint(.white)
+                        VStack(spacing: 2) {
+                            ProgressView().tint(.white)
+                            if let progress = uploadProgress {
+                                Text(progress)
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.white.opacity(0.8))
+                            }
+                        }
                     } else {
                         Text(step == 3 ? "Submit Report" : "Next")
                             .font(.system(size: 16, weight: .semibold))
@@ -277,20 +285,32 @@ struct ReportIssueView: View {
     private func submitIssue() {
         isSubmitting = true
         submitError = nil
+        uploadProgress = nil
         Task {
             do {
+                var imageURL: String? = nil
+
+                // Upload photo first if one was selected
+                if let data = photoData {
+                    uploadProgress = "Uploading photo…"
+                    imageURL = try await APIService.shared.uploadPhoto(data)
+                    uploadProgress = "Submitting report…"
+                }
+
                 submitResult = try await store.createIssue(
                     type: selectedType,
                     description: description.isEmpty ? nil : description,
                     latitude: latitude,
                     longitude: longitude,
                     municipality: municipality,
-                    streetAddress: streetAddress.isEmpty ? nil : streetAddress
+                    streetAddress: streetAddress.isEmpty ? nil : streetAddress,
+                    imageURL: imageURL
                 )
             } catch {
                 submitError = error.localizedDescription
             }
             isSubmitting = false
+            uploadProgress = nil
         }
     }
 

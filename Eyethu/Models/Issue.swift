@@ -54,6 +54,7 @@ struct Issue: Identifiable, Codable {
     let status: IssueStatus
     let source: String
     let reportCount: Int
+    let imageURL: String?
     let createdAt: Date
 
     enum CodingKeys: String, CodingKey {
@@ -61,6 +62,7 @@ struct Issue: Identifiable, Codable {
         case streetAddress = "street_address"
         case tenantId      = "tenant_id"
         case reportCount   = "report_count"
+        case imageURL      = "image_url"
         case createdAt     = "created_at"
     }
 

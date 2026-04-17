@@ -67,6 +67,7 @@ actor APIService {
         longitude: Double?,
         municipality: String?,
         streetAddress: String?,
+        imageURL: String? = nil,
         tenantId: Int = 1
     ) async throws -> CreateIssueResult {
         var body: [String: Any] = ["type": type.rawValue, "tenant_id": tenantId, "source": "web"]
@@ -75,6 +76,7 @@ actor APIService {
         if let v = longitude                 { body["longitude"]       = v }
         if let v = municipality,  !v.isEmpty { body["municipality"]    = v }
         if let v = streetAddress, !v.isEmpty { body["street_address"]  = v }
+        if let v = imageURL,      !v.isEmpty { body["image_url"]       = v }
 
         var req = URLRequest(url: baseURL.appending(path: "/api/issues"))
         req.httpMethod = "POST"
@@ -103,6 +105,44 @@ actor APIService {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try JSONSerialization.data(withJSONObject: ["status": status.rawValue])
         return try await send(req)
+    }
+
+    // MARK: - Photo upload
+
+    struct UploadURLResponse: Codable {
+        let uploadUrl: String
+        let blobUrl: String
+    }
+
+    /// Requests a short-lived SAS write URL from the backend, then PUTs the image
+    /// directly to Azure Blob Storage. Returns the permanent public blob URL.
+    func uploadPhoto(_ imageData: Data, mimeType: String = "image/jpeg") async throws -> String {
+        // 1. Get SAS URL from backend
+        var req = URLRequest(url: baseURL.appending(path: "/api/upload"))
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: [
+            "filename":    "photo.jpg",
+            "contentType": mimeType,
+        ])
+        let urls: UploadURLResponse = try await send(req)
+
+        // 2. PUT image bytes directly to Azure Blob Storage via the SAS URL
+        guard let sasURL = URL(string: urls.uploadUrl) else { throw APIError.badURL }
+        var putReq = URLRequest(url: sasURL)
+        putReq.httpMethod = "PUT"
+        putReq.setValue(mimeType,                         forHTTPHeaderField: "Content-Type")
+        putReq.setValue("\(imageData.count)",              forHTTPHeaderField: "Content-Length")
+        putReq.setValue("BlockBlob",                       forHTTPHeaderField: "x-ms-blob-type")
+        putReq.httpBody = imageData
+
+        let (_, putResponse) = try await perform(putReq)
+        let statusCode = (putResponse as! HTTPURLResponse).statusCode
+        guard (200..<300).contains(statusCode) else {
+            throw APIError.serverError(statusCode, "Azure upload failed")
+        }
+
+        return urls.blobUrl
     }
 
     // MARK: - Geocode
