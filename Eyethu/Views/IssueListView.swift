@@ -17,8 +17,8 @@ struct IssueListView: View {
             .filter {
                 searchText.isEmpty ||
                 $0.type.displayName.localizedCaseInsensitiveContains(searchText) ||
-                $0.streetAddress.localizedCaseInsensitiveContains(searchText) ||
-                $0.description.localizedCaseInsensitiveContains(searchText)
+                ($0.streetAddress ?? "").localizedCaseInsensitiveContains(searchText) ||
+                ($0.description ?? "").localizedCaseInsensitiveContains(searchText)
             }
             .sorted { $0.createdAt > $1.createdAt }
     }
