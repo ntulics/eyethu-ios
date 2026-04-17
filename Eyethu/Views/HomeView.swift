@@ -164,7 +164,7 @@ struct HomeView: View {
 
                 // Status breakdown
                 HStack(spacing: 12) {
-                    StatusCountCard(label: "Open",        count: store.openIssues.count,       color: .orange, icon: "exclamationmark.triangle.fill")
+                    StatusCountCard(label: "Open",        count: store.openIssues.count,       color: .orange, icon: "circle.fill")
                     StatusCountCard(label: "In Progress", count: store.inProgressIssues.count, color: .teal,   icon: "arrow.triangle.2.circlepath.circle.fill")
                     StatusCountCard(label: "Resolved",    count: store.resolvedIssues.count,   color: .green,  icon: "checkmark.circle.fill")
                 }

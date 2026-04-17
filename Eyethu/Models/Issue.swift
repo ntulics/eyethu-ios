@@ -24,7 +24,7 @@ enum IssueType: String, CaseIterable, Codable {
     // SF Symbol — matches the spirit of the web app emoji icons
     var icon: String {
         switch self {
-        case .pothole:        return "triangle.fill"
+        case .pothole:        return "exclamationmark.triangle.fill"
         case .waterLeak:      return "drop.fill"
         case .powerOutage:    return "bolt.fill"
         case .streetlight:    return "lightbulb.fill"
