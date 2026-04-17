@@ -9,9 +9,7 @@ struct IssueRowView: View {
                 RoundedRectangle(cornerRadius: 10)
                     .fill(iconBackground)
                     .frame(width: 44, height: 44)
-                Image(systemName: issue.type.icon)
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(iconColor)
+                IssueTypeGlyph(type: issue.type, size: 18, color: iconColor)
             }
 
             VStack(alignment: .leading, spacing: 3) {

@@ -186,9 +186,7 @@ struct IssueDetailView: View {
                 ))
                 .frame(height: 220)
             VStack(spacing: 12) {
-                Image(systemName: issue.type.icon)
-                    .font(.system(size: 60, weight: .thin))
-                    .foregroundStyle(typeColor.opacity(0.6))
+                IssueTypeGlyph(type: issue.type, size: 60, weight: .thin, color: typeColor.opacity(0.6))
                 Text("No photo attached")
                     .font(.caption)
                     .foregroundStyle(.secondary)

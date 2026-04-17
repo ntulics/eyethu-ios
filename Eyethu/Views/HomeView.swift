@@ -3,11 +3,22 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject var store: IssueStore
     @State private var showLogin = false
+    @State private var currentAreaName = "Near you"
+    @State private var showActiveIssues = false
 
     private var dateHeader: String {
         let f = DateFormatter()
         f.dateFormat = "EEEE, d MMM"
         return f.string(from: Date())
+    }
+
+    private var userInitials: String {
+        if let user = store.currentUser {
+            let parts = user.name.split(separator: " ").prefix(2)
+            let initials = parts.compactMap { $0.first }.map(String.init).joined()
+            if !initials.isEmpty { return initials.uppercased() }
+        }
+        return "EY"
     }
 
     var body: some View {
@@ -21,14 +32,8 @@ struct HomeView: View {
                 }
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Text("eyethu")
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundStyle(.white)
-                }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     if let user = store.currentUser {
                         Menu {
@@ -61,177 +66,285 @@ struct HomeView: View {
             .sheet(isPresented: $showLogin) {
                 LoginView().environmentObject(store)
             }
-            .task { await store.loadIssues() }
-            .refreshable { await store.loadIssues() }
+            .navigationDestination(isPresented: $showActiveIssues) {
+                IssueListView(entryFilter: .active)
+            }
+            .task {
+                await store.loadIssues()
+                await loadCurrentArea()
+            }
+            .refreshable {
+                await store.loadIssues()
+                await loadCurrentArea()
+            }
         }
     }
 
     private var scrollContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+        ZStack(alignment: .top) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Color.clear
+                        .frame(height: 72)
 
-                // Error banner
-                if let err = store.error {
-                    Label(err, systemImage: "wifi.slash")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
-                        .padding(.horizontal, 20)
-                }
+                    // Error banner
+                    if let err = store.error {
+                        Label(err, systemImage: "wifi.slash")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+                            .padding(.horizontal, 20)
+                    }
 
-                // Date header
-                Text(dateHeader)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    // Performance rings card
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack {
+                            Text("Issue Overview")
+                                .font(.system(size: 16, weight: .semibold))
+                            Spacer()
+                            NavigationLink("See all") { IssueListView() }
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.teal)
+                        }
+
+                        HStack(spacing: 0) {
+                            RingProgressView(
+                                progress: store.activeRate,
+                                color: .red,
+                                icon: "exclamationmark.circle.fill",
+                                label: "Active"
+                            ).frame(maxWidth: .infinity)
+
+                            RingProgressView(
+                                progress: store.inProgressRate,
+                                color: .teal,
+                                icon: "arrow.triangle.2.circlepath",
+                                label: "In Progress"
+                            ).frame(maxWidth: .infinity)
+
+                            RingProgressView(
+                                progress: store.resolutionRate,
+                                color: .blue,
+                                icon: "checkmark.circle.fill",
+                                label: "Resolved"
+                            ).frame(maxWidth: .infinity)
+                        }
+                    }
+                    .padding(16)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 20))
+                    .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
                     .padding(.horizontal, 20)
 
-                // Performance rings card
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack {
-                        Text("Issue Overview")
-                            .font(.system(size: 16, weight: .semibold))
-                        Spacer()
-                        NavigationLink("See all") { IssueListView() }
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(.teal)
+                    // Active reports + Last report
+                    HStack(spacing: 12) {
+                        StatCard(title: "Active Reports", subtitle: currentAreaName, onTap: {
+                            showActiveIssues = true
+                        }) {
+                            Text("\(store.activeIssues.count)")
+                                .font(.system(size: 36, weight: .bold, design: .rounded))
+                                .foregroundStyle(.purple)
+                            Text("This week")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            ActivityBars(days: store.weeklyActivity, accentColor: .purple)
+                        }
+
+                        StatCard(title: "Last Report", subtitle: "Submitted") {
+                            if let date = store.lastReportDate {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(date.relativeFormatted)
+                                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                                        .foregroundStyle(.teal)
+                                    Text(date.shortFormatted)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    Spacer(minLength: 8)
+                                    HStack(spacing: 4) {
+                                        ForEach(0..<5) { i in
+                                            RoundedRectangle(cornerRadius: 2)
+                                                .fill(i < 3 ? Color.teal : Color.teal.opacity(0.2))
+                                                .frame(height: 3)
+                                        }
+                                    }
+                                }
+                            } else {
+                                Text("No reports yet").font(.subheadline).foregroundStyle(.secondary)
+                            }
+                        }
                     }
+                    .padding(.horizontal, 20)
 
-                    HStack(spacing: 0) {
-                        RingProgressView(
-                            progress: store.activeRate,
-                            color: .red,
-                            icon: "exclamationmark.circle.fill",
-                            label: "Active"
-                        ).frame(maxWidth: .infinity)
-
-                        RingProgressView(
-                            progress: store.inProgressRate,
-                            color: .teal,
-                            icon: "arrow.triangle.2.circlepath",
-                            label: "In Progress"
-                        ).frame(maxWidth: .infinity)
-
-                        RingProgressView(
-                            progress: store.resolutionRate,
-                            color: .blue,
-                            icon: "checkmark.circle.fill",
-                            label: "Resolved"
-                        ).frame(maxWidth: .infinity)
+                    // Status breakdown
+                    HStack(spacing: 12) {
+                        StatusCountCard(label: "Open", count: store.openIssues.count, color: .orange, icon: "circle.fill")
+                        StatusCountCard(label: "In Progress", count: store.inProgressIssues.count, color: .teal, icon: "arrow.triangle.2.circlepath.circle.fill")
+                        StatusCountCard(label: "Resolved", count: store.resolvedIssues.count, color: .green, icon: "checkmark.circle.fill")
                     }
-                }
-                .padding(16)
-                .background(.background, in: RoundedRectangle(cornerRadius: 20))
-                .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
-                .padding(.horizontal, 20)
+                    .padding(.horizontal, 20)
 
-                // Active reports + Last report
-                HStack(spacing: 12) {
-                    StatCard(title: "Active Reports", subtitle: "This week") {
-                        Text("\(store.activeIssues.count)")
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
-                            .foregroundStyle(.purple)
-                        ActivityBars(days: store.weeklyActivity, accentColor: .purple)
+                    // Recent issues
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack {
+                            Label("Recent Issues", systemImage: "clock.fill")
+                                .font(.system(size: 15, weight: .semibold))
+                            Spacer()
+                            NavigationLink("View all") { IssueListView() }
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.teal)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                        .padding(.bottom, 8)
+
+                        Divider().padding(.horizontal, 16)
+
+                        ForEach(store.issues.prefix(5)) { issue in
+                            NavigationLink(destination: IssueDetailView(issue: issue)) {
+                                IssueRowView(issue: issue)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 6)
+                            }
+                            .buttonStyle(.plain)
+
+                            if issue.id != store.issues.prefix(5).last?.id {
+                                Divider().padding(.horizontal, 16)
+                            }
+                        }
+                        .padding(.bottom, 8)
                     }
+                    .background(.background, in: RoundedRectangle(cornerRadius: 20))
+                    .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
+                    .padding(.horizontal, 20)
 
-                    StatCard(title: "Last Report", subtitle: "Submitted") {
-                        if let date = store.lastReportDate {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(date.relativeFormatted)
-                                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                                    .foregroundStyle(.teal)
-                                Text(date.shortFormatted)
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                Spacer(minLength: 8)
-                                HStack(spacing: 4) {
-                                    ForEach(0..<5) { i in
-                                        RoundedRectangle(cornerRadius: 2)
-                                            .fill(i < 3 ? Color.teal : Color.teal.opacity(0.2))
-                                            .frame(height: 3)
+                    // Category + notices
+                    HStack(spacing: 12) {
+                        StatCard(title: "Categories", subtitle: "Issue types") {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(store.typeBreakdown.prefix(4), id: \.0) { type, count in
+                                    HStack {
+                                        IssueTypeGlyph(type: type, size: 13, color: .secondary)
+                                            .frame(width: 16)
+                                        Text(type.displayName).font(.caption).foregroundStyle(.secondary)
+                                        Spacer()
+                                        Text("\(count)").font(.caption.bold()).foregroundStyle(.primary)
                                     }
                                 }
                             }
-                        } else {
-                            Text("No reports yet").font(.subheadline).foregroundStyle(.secondary)
+                        }
+
+                        StatCard(title: "Total Reports", subtitle: "All time") {
+                            Text("\(store.issues.count)")
+                                .font(.system(size: 36, weight: .bold, design: .rounded))
+                                .foregroundStyle(.orange)
+                            Text("across \(store.typeBreakdown.count) categories")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                         }
                     }
+                    .padding(.horizontal, 20)
+
+                    Spacer(minLength: 20)
                 }
-                .padding(.horizontal, 20)
-
-                // Status breakdown
-                HStack(spacing: 12) {
-                    StatusCountCard(label: "Open",        count: store.openIssues.count,       color: .orange, icon: "circle.fill")
-                    StatusCountCard(label: "In Progress", count: store.inProgressIssues.count, color: .teal,   icon: "arrow.triangle.2.circlepath.circle.fill")
-                    StatusCountCard(label: "Resolved",    count: store.resolvedIssues.count,   color: .green,  icon: "checkmark.circle.fill")
-                }
-                .padding(.horizontal, 20)
-
-                // Recent issues
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        Label("Recent Issues", systemImage: "clock.fill")
-                            .font(.system(size: 15, weight: .semibold))
-                        Spacer()
-                        NavigationLink("View all") { IssueListView() }
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(.teal)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-                    .padding(.bottom, 8)
-
-                    Divider().padding(.horizontal, 16)
-
-                    ForEach(store.issues.prefix(5)) { issue in
-                        NavigationLink(destination: IssueDetailView(issue: issue)) {
-                            IssueRowView(issue: issue)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 6)
-                        }
-                        .buttonStyle(.plain)
-
-                        if issue.id != store.issues.prefix(5).last?.id {
-                            Divider().padding(.horizontal, 16)
-                        }
-                    }
-                    .padding(.bottom, 8)
-                }
-                .background(.background, in: RoundedRectangle(cornerRadius: 20))
-                .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
-                .padding(.horizontal, 20)
-
-                // Category + notices
-                HStack(spacing: 12) {
-                    StatCard(title: "Categories", subtitle: "Issue types") {
-                        VStack(alignment: .leading, spacing: 6) {
-                            ForEach(store.typeBreakdown.prefix(4), id: \.0) { type, count in
-                                HStack {
-                                    Image(systemName: type.icon).font(.caption).foregroundStyle(.secondary).frame(width: 16)
-                                    Text(type.displayName).font(.caption).foregroundStyle(.secondary)
-                                    Spacer()
-                                    Text("\(count)").font(.caption.bold()).foregroundStyle(.primary)
-                                }
-                            }
-                        }
-                    }
-
-                    StatCard(title: "Total Reports", subtitle: "All time") {
-                        Text("\(store.issues.count)")
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
-                            .foregroundStyle(.orange)
-                        Text("across \(store.typeBreakdown.count) categories")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.horizontal, 20)
-
-                Spacer(minLength: 20)
             }
-            .padding(.top, 8)
+
+            topHeader
+                .padding(.top, 8)
+                .frame(maxWidth: .infinity)
+                .zIndex(1)
         }
+    }
+
+    private var topHeader: some View {
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("eyethu")
+                    .font(.system(size: 27, weight: .bold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+
+                Text(dateHeader)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            HStack(spacing: 12) {
+                Button {
+                    if store.currentUser == nil {
+                        showLogin = true
+                    }
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(Color.teal.opacity(0.12))
+                            .frame(width: 34, height: 34)
+
+                        if store.currentUser != nil {
+                            Text(userInitials)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.teal)
+                        } else {
+                            Image(systemName: "person.circle")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundStyle(.teal)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    Task { await store.loadIssues() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 19, weight: .medium))
+                        .foregroundStyle(.teal)
+                        .frame(width: 34, height: 34)
+                }
+                .buttonStyle(.plain)
+                .disabled(store.isLoading)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(Color(.secondarySystemBackground).opacity(0.9))
+            )
+            .overlay(
+                Capsule()
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            )
+        }
+        .padding(.horizontal, 20)
+        .background(Color.clear)
+    }
+
+    private func loadCurrentArea() async {
+        do {
+            let loc = try await LocationHelper.shared.requestLocation()
+            let result = try await APIService.shared.geocode(lat: loc.coordinate.latitude, lon: loc.coordinate.longitude)
+            currentAreaName = compactAreaName(streetAddress: result.streetAddress, municipality: result.municipality)
+        } catch {
+            currentAreaName = "Near you"
+        }
+    }
+
+    private func compactAreaName(streetAddress: String?, municipality: String?) -> String {
+        if let municipality, !municipality.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return municipality.replacingOccurrences(of: "City of ", with: "")
+        }
+
+        if let streetAddress, !streetAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return streetAddress
+                .split(separator: ",")
+                .first
+                .map { String($0) } ?? "Near you"
+        }
+
+        return "Near you"
     }
 }
 

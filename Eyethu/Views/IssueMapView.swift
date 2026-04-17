@@ -4,6 +4,7 @@ import MapKit
 struct IssueMapView: View {
     @EnvironmentObject var store: IssueStore
     @State private var selectedIssue: Issue? = nil
+    @State private var isRecentering = false
     @State private var cameraPosition: MapCameraPosition = .region(
         MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: -26.2041, longitude: 28.0473),
@@ -18,6 +19,8 @@ struct IssueMapView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             Map(position: $cameraPosition) {
+                UserAnnotation()
+
                 ForEach(mappableIssues) { issue in
                     if let coord = issue.coordinate {
                         Annotation(issue.type.displayName, coordinate: coord) {
@@ -40,6 +43,37 @@ struct IssueMapView: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 16)
             }
+
+            VStack {
+                Spacer()
+
+                HStack {
+                    Spacer()
+
+                    Button {
+                        recenterToUserLocation()
+                    } label: {
+                        ZStack {
+                            Circle()
+                                .fill(.regularMaterial)
+                                .frame(width: 42, height: 42)
+                                .shadow(color: .black.opacity(0.16), radius: 10, y: 4)
+
+                            if isRecentering {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                            } else {
+                                Image(systemName: "location.fill")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(.teal)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.trailing, 16)
+                    .padding(.bottom, selectedIssue == nil ? 24 : 140)
+                }
+            }
         }
         .onAppear {
             // Centre map on first issue with coordinates
@@ -48,6 +82,32 @@ struct IssueMapView: View {
                     center: coord,
                     span: MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03)
                 ))
+            }
+        }
+    }
+
+    private func recenterToUserLocation() {
+        guard !isRecentering else { return }
+
+        isRecentering = true
+        Task {
+            defer { isRecentering = false }
+
+            do {
+                let location = try await LocationHelper.shared.requestLocation()
+                let region = MKCoordinateRegion(
+                    center: location.coordinate,
+                    span: MKCoordinateSpan(latitudeDelta: 0.015, longitudeDelta: 0.015)
+                )
+
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        cameraPosition = .region(region)
+                        selectedIssue = nil
+                    }
+                }
+            } catch {
+                return
             }
         }
     }
@@ -71,9 +131,12 @@ struct IssueMapPin: View {
                 .fill(pinColor)
                 .frame(width: isSelected ? 40 : 30, height: isSelected ? 40 : 30)
                 .shadow(color: pinColor.opacity(0.4), radius: isSelected ? 8 : 4)
-            Image(systemName: issue.type.icon)
-                .font(.system(size: isSelected ? 16 : 12, weight: .semibold))
-                .foregroundStyle(.white)
+            IssueTypeGlyph(
+                type: issue.type,
+                size: isSelected ? 16 : 12,
+                weight: .semibold,
+                color: .white
+            )
         }
         .animation(.spring(response: 0.25), value: isSelected)
     }

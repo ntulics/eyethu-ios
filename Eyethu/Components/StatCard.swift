@@ -29,6 +29,8 @@ struct StatCard<Content: View>: View {
                         Text(subtitle)
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                     }
                     Spacer()
                     if onTap != nil {
@@ -93,7 +95,10 @@ struct IssueTypeTag: View {
     let type: IssueType
 
     var body: some View {
-        Label(type.displayName, systemImage: type.icon)
+        HStack(spacing: 4) {
+            IssueTypeGlyph(type: type, size: 11, color: .secondary)
+            Text(type.displayName)
+        }
             .font(.caption2.weight(.medium))
             .padding(.horizontal, 8)
             .padding(.vertical, 3)

@@ -378,9 +378,7 @@ struct TypeCard: View {
                     Circle()
                         .fill(isSelected ? cardColor : cardColor.opacity(0.12))
                         .frame(width: 52, height: 52)
-                    Image(systemName: type.icon)
-                        .font(.system(size: 22, weight: .medium))
-                        .foregroundStyle(isSelected ? .white : cardColor)
+                    IssueTypeGlyph(type: type, size: 22, color: isSelected ? .white : cardColor)
                 }
                 Text(type.displayName)
                     .font(.system(size: 12, weight: .medium))

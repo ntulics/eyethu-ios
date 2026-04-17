@@ -9,9 +9,20 @@ struct IssueListView: View {
     @State private var viewMode: ViewMode = .list
 
     enum ViewMode { case list, map }
+    enum EntryFilter {
+        case all
+        case active
+    }
+
+    private let entryFilter: EntryFilter
+
+    init(entryFilter: EntryFilter = .all) {
+        self.entryFilter = entryFilter
+    }
 
     var filtered: [Issue] {
         store.issues
+            .filter { entryFilter != .active || $0.isActive }
             .filter { selectedStatus == nil || $0.status == selectedStatus }
             .filter { selectedType == nil || $0.type == selectedType }
             .filter {
@@ -71,6 +82,11 @@ struct IssueListView: View {
         }
         .sheet(isPresented: $showFilter) {
             FilterSheet(selectedType: $selectedType)
+        }
+        .onAppear {
+            if entryFilter == .active {
+                viewMode = .list
+            }
         }
     }
 
@@ -132,7 +148,10 @@ struct FilterSheet: View {
                             selectedType = type
                             dismiss()
                         } label: {
-                            Label(type.displayName, systemImage: type.icon)
+                            HStack(spacing: 8) {
+                                IssueTypeGlyph(type: type, size: 16, color: selectedType == type ? .teal : .primary)
+                                Text(type.displayName)
+                            }
                                 .foregroundStyle(selectedType == type ? .teal : .primary)
                         }
                     }
