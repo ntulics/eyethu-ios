@@ -22,10 +22,6 @@ enum IssueType: String, CaseIterable, Codable {
     }
 
     var icon: String {
-        symbolIcon
-    }
-
-    var symbolIcon: String {
         switch self {
         case .pothole:        return "exclamationmark.triangle.fill"
         case .waterLeak:      return "drop.fill"
@@ -33,14 +29,6 @@ enum IssueType: String, CaseIterable, Codable {
         case .streetlight:    return "lightbulb.fill"
         case .illegalDumping: return "trash.fill"
         case .trafficLights:  return "car.2.fill"
-        }
-    }
-
-    var emojiIcon: String? {
-        switch self {
-        case .illegalDumping: return "🚯"
-        case .trafficLights:  return "🚦"
-        default:              return nil
         }
     }
 

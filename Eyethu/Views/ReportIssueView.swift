@@ -6,6 +6,11 @@ struct ReportIssueView: View {
     @EnvironmentObject var store: IssueStore
     @Environment(\.dismiss) private var dismiss
 
+    // Optional pre-fill values — supplied when launched from the map pin flow
+    var prefillType: IssueType? = nil
+    var prefillLatitude: Double? = nil
+    var prefillLongitude: Double? = nil
+
     @State private var selectedType: IssueType = .pothole
     @State private var description = ""
     @State private var streetAddress = ""
@@ -16,6 +21,7 @@ struct ReportIssueView: View {
     @State private var showImageSourcePicker = false
     @State private var showCamera = false
     @State private var showLibrary = false
+    @State private var showMapPicker = false
     @State private var step = 0
     @State private var isSubmitting = false
     @State private var uploadProgress: String? = nil
@@ -26,7 +32,7 @@ struct ReportIssueView: View {
     var isStepValid: Bool {
         switch step {
         case 0: return true
-        case 1: return !description.trimmingCharacters(in: .whitespaces).isEmpty
+        case 1: return true // description is optional
         case 2: return !streetAddress.trimmingCharacters(in: .whitespaces).isEmpty
         default: return true
         }
@@ -82,6 +88,52 @@ struct ReportIssueView: View {
                     Button("Cancel") { dismiss() }.foregroundStyle(.secondary)
                 }
             }
+            // Map location picker (opened from the location step)
+            .sheet(isPresented: $showMapPicker) {
+                MapLocationPickerSheet { lat, lon in
+                    latitude  = lat
+                    longitude = lon
+                    isGeolocating = true
+                    Task {
+                        if let result = try? await APIService.shared.geocode(lat: lat, lon: lon) {
+                            await MainActor.run {
+                                if let addr = result.streetAddress, streetAddress.isEmpty {
+                                    streetAddress = addr
+                                }
+                                if municipality == nil { municipality = result.municipality }
+                                isGeolocating = false
+                            }
+                        } else {
+                            await MainActor.run { isGeolocating = false }
+                        }
+                    }
+                }
+            }
+            // Pre-fill from map pin flow
+            .onAppear {
+                if let type = prefillType {
+                    selectedType = type
+                }
+                if let lat = prefillLatitude, let lon = prefillLongitude {
+                    latitude  = lat
+                    longitude = lon
+                    // If both type and location are provided, skip the type step
+                    if prefillType != nil { step = 1 }
+                    // Auto reverse-geocode the coords
+                    isGeolocating = true
+                    Task {
+                        if let result = try? await APIService.shared.geocode(lat: lat, lon: lon) {
+                            await MainActor.run {
+                                if let addr = result.streetAddress { streetAddress = addr }
+                                municipality = result.municipality
+                                isGeolocating = false
+                            }
+                        } else {
+                            await MainActor.run { isGeolocating = false }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -119,31 +171,43 @@ struct ReportIssueView: View {
 
     private var locationStep: some View {
         VStack(alignment: .leading, spacing: 16) {
-            stepHeader(title: "Where is it?", subtitle: "Provide the street address or use your current location.")
+            stepHeader(title: "Where is it?", subtitle: "Use your location, drop a pin on the map, or type the address.")
 
-            VStack(spacing: 12) {
+            VStack(spacing: 10) {
                 TextField("Street address", text: $streetAddress)
                     .textFieldStyle(.roundedBorder)
                     .autocorrectionDisabled()
 
-                Button {
-                    useCurrentLocation()
-                } label: {
+                // Use my location
+                Button { useCurrentLocation() } label: {
                     HStack {
                         if isGeolocating {
                             ProgressView().scaleEffect(0.8)
                         } else {
                             Image(systemName: "location.fill")
                         }
-                        Text(isGeolocating ? "Getting location…" : "Use current location")
+                        Text(isGeolocating ? "Getting location…" : "Use my location")
                     }
                     .font(.system(size: 14, weight: .medium))
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 11)
                     .background(Color.teal.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
                     .foregroundStyle(.teal)
                 }
                 .disabled(isGeolocating)
+
+                // Pin on map
+                Button { showMapPicker = true } label: {
+                    HStack {
+                        Image(systemName: "map.fill")
+                        Text("Pin on map")
+                    }
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
+                    .background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 10))
+                    .foregroundStyle(.primary)
+                }
             }
 
             if latitude != nil {
@@ -377,8 +441,8 @@ struct TypeCard: View {
                 ZStack {
                     Circle()
                         .fill(isSelected ? cardColor : cardColor.opacity(0.12))
-                        .frame(width: 52, height: 52)
-                    IssueTypeGlyph(type: type, size: 22, color: isSelected ? .white : cardColor)
+                        .frame(width: 60, height: 60)
+                    IssueTypeGlyph(type: type, size: 26, color: isSelected ? .white : cardColor)
                 }
                 Text(type.displayName)
                     .font(.system(size: 12, weight: .medium))

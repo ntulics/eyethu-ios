@@ -14,14 +14,9 @@ struct IssueTypeGlyph: View {
     }
 
     var body: some View {
-        if let emoji = type.emojiIcon {
-            Text(emoji)
-                .font(.system(size: size))
-        } else {
-            Image(systemName: type.symbolIcon)
-                .font(.system(size: size, weight: weight))
-                .foregroundStyle(color)
-        }
+        Image(systemName: type.icon)
+            .font(.system(size: size, weight: weight))
+            .foregroundStyle(color)
     }
 }
 
