@@ -382,7 +382,7 @@ struct IssueMapCallout: View {
                                 .foregroundStyle(.primary)
                             StatusBadge(status: issue.status)
                         }
-                        Text(issue.displayAddress)
+                        Text(issue.displayStreet)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         if let desc = issue.description {

@@ -41,7 +41,7 @@ struct IssueDetailView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(issue.type.displayName)
                                 .font(.system(size: 22, weight: .bold))
-                            Text(issue.displayAddress)
+                            Text(issue.displayStreet)
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -151,7 +151,7 @@ struct IssueDetailView: View {
             }
         }
         .sheet(isPresented: $showShareSheet) {
-            ShareSheet(items: ["\(issue.type.displayName) at \(issue.displayAddress)"])
+            ShareSheet(items: ["\(issue.type.displayName) at \(issue.displayStreet)"])
         }
     }
 

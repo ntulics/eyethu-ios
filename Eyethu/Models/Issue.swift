@@ -91,6 +91,18 @@ struct Issue: Identifiable, Codable {
 
     var isActive: Bool { status != .resolved }
     var displayAddress: String { streetAddress ?? municipality ?? "Unknown location" }
+
+    /// Street name without the house number — e.g. "Henry Fagan Street" not "20 Henry Fagan Street"
+    var displayStreet: String {
+        guard let addr = streetAddress else { return municipality ?? "Unknown location" }
+        // Strip a leading house number: "20 Henry Fagan St" → "Henry Fagan St"
+        let stripped = addr.replacingOccurrences(
+            of: #"^\d+[\w-]*\s+"#,
+            with: "",
+            options: .regularExpression
+        ).trimmingCharacters(in: .whitespaces)
+        return stripped.isEmpty ? addr : stripped
+    }
 }
 
 // Response shape when POST /api/issues detects a duplicate

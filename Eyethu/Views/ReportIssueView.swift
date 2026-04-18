@@ -119,12 +119,17 @@ struct ReportIssueView: View {
                     longitude = lon
                     // If both type and location are provided, skip the type step
                     if prefillType != nil { step = 1 }
-                    // Auto reverse-geocode the coords
+                    // Reverse-geocode to get road-snapped coords + street name
                     isGeolocating = true
                     Task {
                         if let result = try? await APIService.shared.geocode(lat: lat, lon: lon) {
                             await MainActor.run {
-                                if let addr = result.streetAddress { streetAddress = addr }
+                                // Snap to road
+                                if let sLat = result.snappedLat { latitude  = sLat }
+                                if let sLon = result.snappedLon { longitude = sLon }
+                                // Street name only (no house number) for the text field
+                                if let name = result.streetName { streetAddress = name }
+                                else if let addr = result.streetAddress { streetAddress = addr }
                                 municipality = result.municipality
                                 isGeolocating = false
                             }
@@ -410,13 +415,20 @@ struct ReportIssueView: View {
         isGeolocating = true
         Task {
             do {
-                // Use a one-shot CLLocationManager
                 let loc = try await LocationHelper.shared.requestLocation()
                 latitude  = loc.coordinate.latitude
                 longitude = loc.coordinate.longitude
-                // Reverse-geocode via the backend
-                let result = try await APIService.shared.geocode(lat: loc.coordinate.latitude, lon: loc.coordinate.longitude)
-                if let addr = result.streetAddress { streetAddress = addr }
+                // Reverse-geocode via the backend — returns road-snapped coords
+                let result = try await APIService.shared.geocode(
+                    lat: loc.coordinate.latitude,
+                    lon: loc.coordinate.longitude
+                )
+                // Snap to road
+                if let sLat = result.snappedLat { latitude  = sLat }
+                if let sLon = result.snappedLon { longitude = sLon }
+                // Show street name only (no house number)
+                if let name = result.streetName  { streetAddress = name }
+                else if let addr = result.streetAddress { streetAddress = addr }
                 municipality = result.municipality
             } catch {
                 // Silently ignore — user can type the address

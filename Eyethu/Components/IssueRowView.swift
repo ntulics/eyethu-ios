@@ -20,7 +20,7 @@ struct IssueRowView: View {
                     Spacer()
                     StatusBadge(status: issue.status)
                 }
-                Text(issue.displayAddress)
+                Text(issue.displayStreet)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)

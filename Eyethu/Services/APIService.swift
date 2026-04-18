@@ -148,11 +148,17 @@ actor APIService {
     // MARK: - Geocode
 
     struct GeocodeResult: Codable {
-        let streetAddress: String?
+        let streetAddress: String?   // full address with house number — stored in DB
+        let streetName: String?      // street only, no house number — shown in UI
         let municipality: String?
+        let snappedLat: Double?      // road-snapped coordinate from Azure Maps
+        let snappedLon: Double?
         enum CodingKeys: String, CodingKey {
             case streetAddress = "streetAddress"
+            case streetName    = "streetName"
             case municipality
+            case snappedLat    = "snappedLat"
+            case snappedLon    = "snappedLon"
         }
     }
 
