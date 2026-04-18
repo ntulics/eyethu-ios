@@ -19,6 +19,7 @@
 		7C3D0738925E4268A47210FF /* Issue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E05DD641BAA4CBE8C782F97 /* Issue.swift */; };
 		90B5931759114300B6994146 /* ReportIssueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD556B2059F4EAAB4C57327 /* ReportIssueView.swift */; };
 		9CD17DD5681146C1A49E0008 /* IssueMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 952150F230D6447CBA75F3D2 /* IssueMapView.swift */; };
+		3D54D71497F145ADB71512CF /* MapLocationPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07FEAAC87AFC44CC8EB7D13F /* MapLocationPickerSheet.swift */; };
 		9ED76D0D471A4920A72C373D /* RingProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B5DAB5D513E4B90B17F59D4 /* RingProgressView.swift */; };
 		A63392BE533A4FF8B24492DC /* LocationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24FE78C426B24171BEF67142 /* LocationHelper.swift */; };
 		D11F8774F9B945E2A9526EBA /* ImagePickerViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 837A3A1F35554EB9A410E4C3 /* ImagePickerViews.swift */; };
@@ -39,6 +40,7 @@
 		7527F67E56EB4D12B93885F5 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		837A3A1F35554EB9A410E4C3 /* ImagePickerViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePickerViews.swift; sourceTree = "<group>"; };
 		952150F230D6447CBA75F3D2 /* IssueMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueMapView.swift; sourceTree = "<group>"; };
+		07FEAAC87AFC44CC8EB7D13F /* MapLocationPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapLocationPickerSheet.swift; sourceTree = "<group>"; };
 		AC5EA21C1B6440119310C75F /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		B64B142F5CE84989B5D0CD85 /* IssueRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueRowView.swift; sourceTree = "<group>"; };
 		BAA355AAB5314618921223BD /* IssueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueStore.swift; sourceTree = "<group>"; };
@@ -84,6 +86,7 @@
 				F2119021F05F42ABB4008E16 /* IssueDetailView.swift */,
 				E6D6121EACA549A9924552DB /* IssueListView.swift */,
 				952150F230D6447CBA75F3D2 /* IssueMapView.swift */,
+				07FEAAC87AFC44CC8EB7D13F /* MapLocationPickerSheet.swift */,
 				7527F67E56EB4D12B93885F5 /* LoginView.swift */,
 				AC5EA21C1B6440119310C75F /* ProfileView.swift */,
 				DAD556B2059F4EAAB4C57327 /* ReportIssueView.swift */,
@@ -210,6 +213,7 @@
 				69556B3533414597A50EE39F /* IssueDetailView.swift in Sources */,
 				2639703024FA43F78D1350D9 /* IssueListView.swift in Sources */,
 				9CD17DD5681146C1A49E0008 /* IssueMapView.swift in Sources */,
+				3D54D71497F145ADB71512CF /* MapLocationPickerSheet.swift in Sources */,
 				0C83E69EB59A4998A4A3E0FE /* LoginView.swift in Sources */,
 				F2B3B283057A42EA88B0CF62 /* ProfileView.swift in Sources */,
 				90B5931759114300B6994146 /* ReportIssueView.swift in Sources */,
