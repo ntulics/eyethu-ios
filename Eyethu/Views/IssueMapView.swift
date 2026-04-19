@@ -11,8 +11,11 @@ struct IssueMapView: View {
             span: MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03)
         )
     )
-    // Continuously updated map centre (read by "Report here")
+    // Coordinate at the crosshair tip (screen centre), resolved via MapProxy.convert
+    // so it matches what the user sees regardless of safe-area extensions.
     @State private var mapCenter = CLLocationCoordinate2D(latitude: -26.2041, longitude: 28.0473)
+    // ZStack size captured from GeometryReader so we can compute the screen centre
+    @State private var zstackSize: CGSize = .zero
 
     // Report-pin flow
     @State private var reportType: IssueType? = nil
@@ -27,37 +30,48 @@ struct IssueMapView: View {
         ZStack(alignment: .bottom) {
 
             // ── Map ────────────────────────────────────────────────────────────
-            Map(position: $cameraPosition) {
-                UserAnnotation()
+            // MapReader gives us proxy.convert which converts a screen pixel to
+            // a geographic coordinate. This is the only reliable way to get the
+            // coordinate AT the crosshair tip when the map extends beyond the
+            // ZStack boundary via .ignoresSafeArea.
+            MapReader { proxy in
+                Map(position: $cameraPosition) {
+                    UserAnnotation()
 
-                ForEach(mappableIssues) { issue in
-                    if let coord = issue.coordinate {
-                        Annotation(issue.type.displayName, coordinate: coord) {
-                            IssueMapPin(issue: issue, isSelected: selectedIssue?.id == issue.id)
-                                .onTapGesture {
-                                    guard reportType == nil else { return }
-                                    withAnimation(.spring(response: 0.3)) {
-                                        selectedIssue = selectedIssue?.id == issue.id ? nil : issue
+                    ForEach(mappableIssues) { issue in
+                        if let coord = issue.coordinate {
+                            Annotation(issue.type.displayName, coordinate: coord) {
+                                IssueMapPin(issue: issue, isSelected: selectedIssue?.id == issue.id)
+                                    .onTapGesture {
+                                        guard reportType == nil else { return }
+                                        withAnimation(.spring(response: 0.3)) {
+                                            selectedIssue = selectedIssue?.id == issue.id ? nil : issue
+                                        }
                                     }
-                                }
+                            }
                         }
                     }
                 }
-            }
-            .mapStyle(.standard(elevation: .realistic))
-            .ignoresSafeArea(edges: .bottom)
-            .onMapCameraChange(frequency: .continuous) { ctx in
-                mapCenter = ctx.region.center
-            }
-            // ── Crosshair (report mode only) ───────────────────────────────────
-            // Attached as an overlay ON the map so both share the same frame,
-            // eliminating the safe-area offset that caused coordinate drift.
-            .overlay {
-                if let rt = reportType {
-                    ReportCrosshair(type: rt)
-                        .allowsHitTesting(false)
-                        .transition(.opacity)
+                .mapStyle(.standard(elevation: .realistic))
+                .ignoresSafeArea(edges: .bottom)
+                .onMapCameraChange(frequency: .continuous) { _ in
+                    guard zstackSize != .zero else { return }
+                    // Convert the ZStack centre pixel (= crosshair tip) to a coordinate.
+                    // ctx.region.center would give the centre of the full extended map
+                    // frame — wrong. proxy.convert gives the exact geographic point
+                    // at the screen position we specify.
+                    let centre = CGPoint(x: zstackSize.width / 2, y: zstackSize.height / 2)
+                    if let coord = proxy.convert(centre, from: .named("reportMap")) {
+                        mapCenter = coord
+                    }
                 }
+            }
+
+            // ── Crosshair (report mode only) — stays in ZStack at screen centre ─
+            if let rt = reportType {
+                ReportCrosshair(type: rt)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
             }
 
             // ── Instruction banner (report mode) ──────────────────────────────
@@ -147,6 +161,16 @@ struct IssueMapView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        // Named coordinate space so MapProxy knows which frame to convert from
+        .coordinateSpace(name: "reportMap")
+        // Capture the ZStack's pixel size (safe-area-respecting) for the proxy call
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { zstackSize = geo.size }
+                    .onChange(of: geo.size) { _, s in zstackSize = s }
+            }
+        )
         .animation(.spring(response: 0.35), value: reportType)
         .onAppear {
             Task {
