@@ -4,30 +4,60 @@ import MapKit
 struct IssueDetailView: View {
     let issue: Issue
     @EnvironmentObject var store: IssueStore
-    @State private var showShareSheet = false
-    @State private var isWatching = false
+    @State private var showShareSheet   = false
+    @State private var isWatching       = false
     @State private var isUpdatingStatus = false
     @State private var errorMessage: String?
+    @State private var photos: [IssuePhoto] = []
+    @State private var photoPage = 0
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
 
-                // Hero image (real photo or placeholder)
-                if let urlString = issue.imageURL, let url = URL(string: urlString) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image.resizable().scaledToFill()
-                                .frame(maxWidth: .infinity).frame(height: 240)
-                                .clipped()
-                        case .failure:
-                            heroPlaceholder
-                        default:
-                            ZStack {
-                                Rectangle().fill(Color(.systemGray5)).frame(height: 240)
-                                ProgressView()
+                // ── Photo carousel (swipe left/right) ──────────────────────
+                let allPhotoURLs: [String] = {
+                    var urls = photos.map(\.url)
+                    // legacy single image_url fallback
+                    if urls.isEmpty, let u = issue.imageURL { urls = [u] }
+                    return urls
+                }()
+
+                if !allPhotoURLs.isEmpty {
+                    ZStack(alignment: .bottom) {
+                        TabView(selection: $photoPage) {
+                            ForEach(Array(allPhotoURLs.enumerated()), id: \.offset) { idx, urlStr in
+                                if let url = URL(string: urlStr) {
+                                    AsyncImage(url: url) { phase in
+                                        switch phase {
+                                        case .success(let img):
+                                            img.resizable().scaledToFill()
+                                                .frame(maxWidth: .infinity).frame(height: 260)
+                                                .clipped()
+                                        case .failure:
+                                            heroPlaceholder
+                                        default:
+                                            ZStack {
+                                                Rectangle().fill(Color(.systemGray5)).frame(height: 260)
+                                                ProgressView()
+                                            }
+                                        }
+                                    }
+                                    .tag(idx)
+                                }
                             }
+                        }
+                        .tabViewStyle(.page(indexDisplayMode: allPhotoURLs.count > 1 ? .always : .never))
+                        .frame(height: 260)
+
+                        // Photo count badge
+                        if allPhotoURLs.count > 1 {
+                            Text("\(photoPage + 1) / \(allPhotoURLs.count)")
+                                .font(.caption2.weight(.semibold))
+                                .padding(.horizontal, 10).padding(.vertical, 4)
+                                .background(.black.opacity(0.45), in: Capsule())
+                                .foregroundStyle(.white)
+                                .padding(.bottom, 24)
                         }
                     }
                 } else {
@@ -95,13 +125,18 @@ struct IssueDetailView: View {
                         }
                         MetaItem(icon: "person.2",    label: "\(issue.reportCount) report(s)",  title: "Reports")
                         MetaItem(
-                            icon:  issue.source == "whatsapp" ? "message.fill" : "globe",
-                            label: issue.source == "whatsapp" ? "WhatsApp" : "Web",
+                            icon:  issue.source == "whatsapp" ? "message.fill" : issue.source == "ios" ? "iphone" : "globe",
+                            label: issue.source == "whatsapp" ? "WhatsApp" : issue.source == "ios" ? "iOS App" : "Web",
                             title: "Source"
                         )
                         if let muni = issue.municipality {
                             MetaItem(icon: "building.2", label: muni, title: "Municipality")
                         }
+                        MetaItem(
+                            icon:  "photo.on.rectangle.angled",
+                            label: photos.isEmpty ? (issue.imageURL != nil ? "1 photo" : "No photos") : "\(photos.count)/5 photo\(photos.count == 1 ? "" : "s")",
+                            title: "Photos"
+                        )
                     }
 
                     // Error banner
@@ -131,6 +166,12 @@ struct IssueDetailView: View {
                     }
                 }
                 .padding(20)
+            }
+        }
+        .task {
+            // Fetch photos separately (list API doesn't include them)
+            if let fetched = try? await APIService.shared.fetchPhotos(issueId: issue.id) {
+                photos = fetched
             }
         }
         .navigationTitle("Issue")

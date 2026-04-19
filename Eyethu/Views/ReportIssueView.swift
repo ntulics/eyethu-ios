@@ -17,10 +17,12 @@ struct ReportIssueView: View {
     @State private var latitude: Double? = nil
     @State private var longitude: Double? = nil
     @State private var municipality: String? = nil
-    @State private var photoData: Data? = nil
+    // Multi-photo: up to 5 per issue
+    @State private var photoDatas: [Data] = []
     @State private var showImageSourcePicker = false
     @State private var showCamera = false
     @State private var showLibrary = false
+    private let maxPhotos = 5
     @State private var showMapPicker = false
     @State private var step = 0
     @State private var isSubmitting = false
@@ -97,7 +99,10 @@ struct ReportIssueView: View {
                     Task {
                         if let result = try? await APIService.shared.geocode(lat: lat, lon: lon) {
                             await MainActor.run {
-                                if let addr = result.streetAddress, streetAddress.isEmpty {
+                                // Geocode text only — never override the pin coordinates.
+                                if let name = result.streetName, streetAddress.isEmpty {
+                                    streetAddress = name
+                                } else if let addr = result.streetAddress, streetAddress.isEmpty {
                                     streetAddress = addr
                                 }
                                 if municipality == nil { municipality = result.municipality }
@@ -124,10 +129,8 @@ struct ReportIssueView: View {
                     Task {
                         if let result = try? await APIService.shared.geocode(lat: lat, lon: lon) {
                             await MainActor.run {
-                                // Snap to road
-                                if let sLat = result.snappedLat { latitude  = sLat }
-                                if let sLon = result.snappedLon { longitude = sLon }
-                                // Street name only (no house number) for the text field
+                                // Only use geocode for display text — never override the
+                                // user's chosen pin coordinates with snapped values.
                                 if let name = result.streetName { streetAddress = name }
                                 else if let addr = result.streetAddress { streetAddress = addr }
                                 municipality = result.municipality
@@ -225,56 +228,86 @@ struct ReportIssueView: View {
 
     private var photoStep: some View {
         VStack(alignment: .leading, spacing: 16) {
-            stepHeader(title: "Add a photo", subtitle: "A photo helps the council assess and fix the issue faster. Optional.")
+            stepHeader(
+                title: "Add photos",
+                subtitle: "Up to \(maxPhotos) photos. A photo helps the council assess the issue faster. Optional."
+            )
 
-            Button {
-                showImageSourcePicker = true
-            } label: {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 14)
-                        .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [8]))
-                        .foregroundStyle(Color.teal.opacity(0.5))
-                        .frame(height: 200)
+            // Thumbnail strip
+            if !photoDatas.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(Array(photoDatas.enumerated()), id: \.offset) { idx, data in
+                            if let img = UIImage(data: data) {
+                                ZStack(alignment: .topTrailing) {
+                                    Image(uiImage: img)
+                                        .resizable().scaledToFill()
+                                        .frame(width: 90, height: 90)
+                                        .clipShape(RoundedRectangle(cornerRadius: 10))
 
-                    if let data = photoData, let uiImage = UIImage(data: data) {
-                        Image(uiImage: uiImage)
-                            .resizable().scaledToFill()
-                            .frame(height: 200)
-                            .clipShape(RoundedRectangle(cornerRadius: 14))
-                            .overlay(alignment: .topTrailing) {
-                                Image(systemName: "pencil.circle.fill")
-                                    .font(.title2)
-                                    .foregroundStyle(.white)
-                                    .shadow(radius: 4)
-                                    .padding(10)
+                                    Button {
+                                        photoDatas.remove(at: idx)
+                                    } label: {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .font(.system(size: 20))
+                                            .foregroundStyle(.white)
+                                            .shadow(color: .black.opacity(0.3), radius: 4)
+                                    }
+                                    .offset(x: 4, y: -4)
+                                }
                             }
-                    } else {
-                        VStack(spacing: 10) {
-                            Image(systemName: "camera.fill").font(.largeTitle).foregroundStyle(.teal)
-                            Text("Take photo or choose from library")
-                                .font(.subheadline).foregroundStyle(.secondary)
                         }
                     }
+                    .padding(.horizontal, 2)
+                    .padding(.vertical, 2)
                 }
             }
-            .buttonStyle(.plain)
-            .confirmationDialog("Add Photo", isPresented: $showImageSourcePicker, titleVisibility: .visible) {
-                Button("Take Photo") { showCamera = true }
-                Button("Choose from Library") { showLibrary = true }
-                if photoData != nil {
-                    Button("Remove Photo", role: .destructive) { photoData = nil }
+
+            // Add photo button (hidden when limit reached)
+            if photoDatas.count < maxPhotos {
+                Button {
+                    showImageSourcePicker = true
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "camera.fill").font(.title3).foregroundStyle(.teal)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Take photo or choose from library")
+                                .font(.subheadline).foregroundStyle(.primary)
+                            Text("\(photoDatas.count)/\(maxPhotos) photos added")
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                    }
+                    .padding(14)
+                    .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 12))
                 }
-                Button("Cancel", role: .cancel) {}
+                .buttonStyle(.plain)
+            } else {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                    Text("Photo limit reached (\(maxPhotos)/\(maxPhotos))")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                .padding(12)
+                .background(Color.green.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
             }
-            .sheet(isPresented: $showCamera) {
-                CameraPickerView { image in
-                    photoData = image.jpegData(compressionQuality: 0.8)
+        }
+        .confirmationDialog("Add Photo", isPresented: $showImageSourcePicker, titleVisibility: .visible) {
+            Button("Take Photo") { showCamera = true }
+            Button("Choose from Library") { showLibrary = true }
+            Button("Cancel", role: .cancel) {}
+        }
+        .sheet(isPresented: $showCamera) {
+            CameraPickerView { image in
+                if photoDatas.count < maxPhotos {
+                    photoDatas.append(image.jpegData(compressionQuality: 0.8) ?? Data())
                 }
             }
-            .sheet(isPresented: $showLibrary) {
-                PhotoLibraryPickerView { data in
-                    photoData = data
-                }
+        }
+        .sheet(isPresented: $showLibrary) {
+            PhotoLibraryPickerView { data in
+                if photoDatas.count < maxPhotos { photoDatas.append(data) }
             }
         }
     }
@@ -385,12 +418,15 @@ struct ReportIssueView: View {
         uploadProgress = nil
         Task {
             do {
-                var imageURL: String? = nil
+                var imageURLs: [String] = []
 
-                // Upload photo first if one was selected
-                if let data = photoData {
-                    uploadProgress = "Uploading photo…"
-                    imageURL = try await APIService.shared.uploadPhoto(data)
+                // Upload all selected photos before submitting
+                if !photoDatas.isEmpty {
+                    for (i, data) in photoDatas.enumerated() {
+                        uploadProgress = "Uploading photo \(i + 1) of \(photoDatas.count)…"
+                        let url = try await APIService.shared.uploadPhoto(data)
+                        imageURLs.append(url)
+                    }
                     uploadProgress = "Submitting report…"
                 }
 
@@ -401,7 +437,7 @@ struct ReportIssueView: View {
                     longitude: longitude,
                     municipality: municipality,
                     streetAddress: streetAddress.isEmpty ? nil : streetAddress,
-                    imageURL: imageURL
+                    imageURLs: imageURLs
                 )
             } catch {
                 submitError = error.localizedDescription
@@ -418,15 +454,12 @@ struct ReportIssueView: View {
                 let loc = try await LocationHelper.shared.requestLocation()
                 latitude  = loc.coordinate.latitude
                 longitude = loc.coordinate.longitude
-                // Reverse-geocode via the backend — returns road-snapped coords
+                // Reverse-geocode only for street name / municipality text.
+                // The GPS coordinates are the source of truth — not overridden.
                 let result = try await APIService.shared.geocode(
                     lat: loc.coordinate.latitude,
                     lon: loc.coordinate.longitude
                 )
-                // Snap to road
-                if let sLat = result.snappedLat { latitude  = sLat }
-                if let sLon = result.snappedLon { longitude = sLon }
-                // Show street name only (no house number)
                 if let name = result.streetName  { streetAddress = name }
                 else if let addr = result.streetAddress { streetAddress = addr }
                 municipality = result.municipality

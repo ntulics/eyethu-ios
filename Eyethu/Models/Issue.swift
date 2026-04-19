@@ -59,6 +59,21 @@ enum IssueStatus: String, CaseIterable, Codable {
     }
 }
 
+// Photo attached to an issue (from issue_photos table, max 5 per issue)
+struct IssuePhoto: Identifiable, Codable {
+    let id: Int
+    let issueId: Int
+    let url: String
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case issueId   = "issue_id"
+        case url
+        case createdAt = "created_at"
+    }
+}
+
 struct Issue: Identifiable, Codable {
     let id: Int
     let type: IssueType
@@ -74,9 +89,11 @@ struct Issue: Identifiable, Codable {
     let reportCount: Int
     let imageURL: String?
     let createdAt: Date
+    // Populated by GET /api/issues/[id] (not present in list responses)
+    let photos: [IssuePhoto]?
 
     enum CodingKeys: String, CodingKey {
-        case id, type, description, latitude, longitude, municipality, ward, status, source
+        case id, type, description, latitude, longitude, municipality, ward, status, source, photos
         case streetAddress = "street_address"
         case tenantId      = "tenant_id"
         case reportCount   = "report_count"

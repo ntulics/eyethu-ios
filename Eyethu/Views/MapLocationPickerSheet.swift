@@ -17,7 +17,6 @@ struct MapLocationPickerSheet: View {
     )
     @State private var mapCenter = CLLocationCoordinate2D(latitude: -26.2041, longitude: 28.0473)
     @State private var didCenterOnUser = false
-    @State private var isSnapping = false
 
     var body: some View {
         NavigationStack {
@@ -50,40 +49,21 @@ struct MapLocationPickerSheet: View {
 
                     // Confirm bar — snaps to road before calling back
                     Button {
-                        guard !isSnapping else { return }
-                        isSnapping = true
-                        let rawLat = mapCenter.latitude
-                        let rawLon = mapCenter.longitude
-                        Task {
-                            if let result = try? await APIService.shared.geocode(lat: rawLat, lon: rawLon) {
-                                let snapLat = result.snappedLat ?? rawLat
-                                let snapLon = result.snappedLon ?? rawLon
-                                await MainActor.run {
-                                    onSelect(snapLat, snapLon)
-                                    dismiss()
-                                }
-                            } else {
-                                await MainActor.run {
-                                    onSelect(rawLat, rawLon)
-                                    dismiss()
-                                }
-                            }
-                        }
+                        // Use the exact map-centre the user panned to.
+                        // Geocode is called later (in ReportIssueView) only to
+                        // resolve a street name — it never overrides these coords.
+                        let lat = mapCenter.latitude
+                        let lon = mapCenter.longitude
+                        onSelect(lat, lon)
+                        dismiss()
                     } label: {
-                        Group {
-                            if isSnapping {
-                                ProgressView().tint(.white)
-                            } else {
-                                Label("Confirm location", systemImage: "checkmark.circle.fill")
-                                    .font(.system(size: 16, weight: .semibold))
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 52)
-                        .background(Color.teal, in: RoundedRectangle(cornerRadius: 14))
-                        .foregroundStyle(.white)
+                        Label("Confirm location", systemImage: "checkmark.circle.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(Color.teal, in: RoundedRectangle(cornerRadius: 14))
+                            .foregroundStyle(.white)
                     }
-                    .disabled(isSnapping)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(.regularMaterial)

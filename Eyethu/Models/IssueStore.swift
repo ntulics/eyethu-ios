@@ -40,6 +40,32 @@ class IssueStore: ObservableObject {
         }
     }
 
+    struct MuniStat: Identifiable {
+        let id = UUID()
+        let name: String
+        let total: Int
+        let open: Int
+        let resolved: Int
+    }
+
+    var municipalityLeaderboard: [MuniStat] {
+        var counts: [String: (total: Int, open: Int, resolved: Int)] = [:]
+        for issue in issues {
+            guard let muni = issue.municipality, !muni.trimmingCharacters(in: .whitespaces).isEmpty else { continue }
+            let c = counts[muni] ?? (0, 0, 0)
+            counts[muni] = (
+                total:    c.total + 1,
+                open:     c.open + (issue.status == .open ? 1 : 0),
+                resolved: c.resolved + (issue.status == .resolved ? 1 : 0)
+            )
+        }
+        return counts
+            .map { MuniStat(name: $0.key, total: $0.value.total, open: $0.value.open, resolved: $0.value.resolved) }
+            .sorted { $0.total > $1.total }
+            .prefix(8)
+            .map { $0 }
+    }
+
     var typeBreakdown: [(IssueType, Int)] {
         IssueType.allCases.compactMap { type in
             let count = issues.filter { $0.type == type }.count
@@ -79,7 +105,8 @@ class IssueStore: ObservableObject {
         longitude: Double?,
         municipality: String?,
         streetAddress: String?,
-        imageURL: String? = nil
+        imageURL: String? = nil,
+        imageURLs: [String] = []
     ) async throws -> CreateIssueResult {
         let result = try await APIService.shared.createIssue(
             type: type,
@@ -88,7 +115,8 @@ class IssueStore: ObservableObject {
             longitude: longitude,
             municipality: municipality,
             streetAddress: streetAddress,
-            imageURL: imageURL
+            imageURL: imageURL,
+            imageURLs: imageURLs
         )
         // Refresh the list so the new issue appears immediately
         await loadIssues()

@@ -23,7 +23,7 @@ enum APIError: LocalizedError {
 actor APIService {
     static let shared = APIService()
 
-    private let baseURL = URL(string: "https://eyethu.azurewebsites.net")!
+    private let baseURL = URL(string: "https://eyethu.org")!
     private let session: URLSession
 
     // Persists NextAuth session cookie across calls
@@ -60,6 +60,11 @@ actor APIService {
         return try await get(URLRequest(url: url))
     }
 
+    func fetchPhotos(issueId: Int) async throws -> [IssuePhoto] {
+        let url = baseURL.appending(path: "/api/issues/\(issueId)/photos")
+        return try await get(URLRequest(url: url))
+    }
+
     func createIssue(
         type: IssueType,
         description: String?,
@@ -68,15 +73,19 @@ actor APIService {
         municipality: String?,
         streetAddress: String?,
         imageURL: String? = nil,
+        imageURLs: [String] = [],
         tenantId: Int = 1
     ) async throws -> CreateIssueResult {
-        var body: [String: Any] = ["type": type.rawValue, "tenant_id": tenantId, "source": "web"]
+        var body: [String: Any] = ["type": type.rawValue, "tenant_id": tenantId, "source": "ios"]
         if let v = description,   !v.isEmpty { body["description"]    = v }
         if let v = latitude                  { body["latitude"]        = v }
         if let v = longitude                 { body["longitude"]       = v }
         if let v = municipality,  !v.isEmpty { body["municipality"]    = v }
         if let v = streetAddress, !v.isEmpty { body["street_address"]  = v }
-        if let v = imageURL,      !v.isEmpty { body["image_url"]       = v }
+        // Collect all photo URLs (imageURLs takes precedence; imageURL is legacy fallback)
+        var allURLs = imageURLs
+        if let v = imageURL, !v.isEmpty, !allURLs.contains(v) { allURLs.append(v) }
+        if !allURLs.isEmpty { body["image_urls"] = allURLs }
 
         var req = URLRequest(url: baseURL.appending(path: "/api/issues"))
         req.httpMethod = "POST"

@@ -146,11 +146,25 @@ struct IssueMapView: View {
         }
         .animation(.spring(response: 0.35), value: reportType)
         .onAppear {
-            if let first = mappableIssues.first, let coord = first.coordinate {
-                cameraPosition = .region(MKCoordinateRegion(
-                    center: coord,
-                    span: MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03)
-                ))
+            Task {
+                // Try to center on user's actual GPS location first
+                if let loc = try? await LocationHelper.shared.requestLocation() {
+                    await MainActor.run {
+                        cameraPosition = .region(MKCoordinateRegion(
+                            center: loc.coordinate,
+                            span: MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03)
+                        ))
+                        mapCenter = loc.coordinate
+                    }
+                } else if let first = mappableIssues.first, let coord = first.coordinate {
+                    // Fall back to first reported issue if location unavailable
+                    await MainActor.run {
+                        cameraPosition = .region(MKCoordinateRegion(
+                            center: coord,
+                            span: MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03)
+                        ))
+                    }
+                }
             }
         }
         // ── Type picker sheet ─────────────────────────────────────────────────

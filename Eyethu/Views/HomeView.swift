@@ -137,41 +137,23 @@ struct HomeView: View {
                     .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
                     .padding(.horizontal, 20)
 
-                    // Active reports + Last report
-                    HStack(spacing: 12) {
-                        StatCard(title: "Active Reports", subtitle: currentAreaName, onTap: {
-                            showActiveIssues = true
-                        }) {
-                            Text("\(store.activeIssues.count)")
-                                .font(.system(size: 36, weight: .bold, design: .rounded))
-                                .foregroundStyle(.purple)
-                            Text("This week")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            ActivityBars(days: store.weeklyActivity, accentColor: .purple)
-                        }
-
-                        StatCard(title: "Last Report", subtitle: "Submitted") {
-                            if let date = store.lastReportDate {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(date.relativeFormatted)
-                                        .font(.system(size: 20, weight: .bold, design: .rounded))
-                                        .foregroundStyle(.teal)
-                                    Text(date.shortFormatted)
+                    // Active Reports — full-width card with last-report time
+                    StatCard(title: "Active Reports", subtitle: currentAreaName, onTap: {
+                        showActiveIssues = true
+                    }) {
+                        HStack(alignment: .bottom, spacing: 16) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("\(store.activeIssues.count)")
+                                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                                    .foregroundStyle(.teal)
+                                if let date = store.lastReportDate {
+                                    Text("Last: \(date.relativeFormatted)")
                                         .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                    Spacer(minLength: 8)
-                                    HStack(spacing: 4) {
-                                        ForEach(0..<5) { i in
-                                            RoundedRectangle(cornerRadius: 2)
-                                                .fill(i < 3 ? Color.teal : Color.teal.opacity(0.2))
-                                                .frame(height: 3)
-                                        }
-                                    }
+                                        .foregroundStyle(.teal.opacity(0.8))
                                 }
-                            } else {
-                                Text("No reports yet").font(.subheadline).foregroundStyle(.secondary)
                             }
+                            Spacer()
+                            ActivityBars(days: store.weeklyActivity, accentColor: .teal)
                         }
                     }
                     .padding(.horizontal, 20)
@@ -217,6 +199,42 @@ struct HomeView: View {
                     .background(.background, in: RoundedRectangle(cornerRadius: 20))
                     .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
                     .padding(.horizontal, 20)
+
+                    // Municipal Leaderboard
+                    if !store.municipalityLeaderboard.isEmpty {
+                        VStack(alignment: .leading, spacing: 0) {
+                            HStack {
+                                Label("Municipal Leaderboard", systemImage: "trophy.fill")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                HStack(spacing: 10) {
+                                    Label("Issues", systemImage: "circle.fill")
+                                        .font(.caption2)
+                                        .foregroundStyle(.red.opacity(0.7))
+                                    Label("Resolved", systemImage: "circle.fill")
+                                        .font(.caption2)
+                                        .foregroundStyle(.green.opacity(0.8))
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.top, 16)
+                            .padding(.bottom, 12)
+
+                            Divider().padding(.horizontal, 16)
+
+                            ForEach(store.municipalityLeaderboard) { stat in
+                                MunicipalityLeaderboardRow(stat: stat)
+                                if stat.id != store.municipalityLeaderboard.last?.id {
+                                    Divider().padding(.horizontal, 16)
+                                }
+                            }
+                            .padding(.bottom, 8)
+                        }
+                        .background(.background, in: RoundedRectangle(cornerRadius: 20))
+                        .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
+                        .padding(.horizontal, 20)
+                    }
 
                     // Category + notices
                     HStack(spacing: 12) {
@@ -345,6 +363,49 @@ struct HomeView: View {
         }
 
         return "Near you"
+    }
+}
+
+struct MunicipalityLeaderboardRow: View {
+    let stat: IssueStore.MuniStat
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(stat.name)
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                Spacer()
+                HStack(spacing: 12) {
+                    Label("\(stat.open)", systemImage: "exclamationmark.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.red)
+                    Label("\(stat.resolved)", systemImage: "checkmark.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.green)
+                }
+            }
+            // Stacked bar: red = open issues, green = resolved
+            GeometryReader { geo in
+                let total = max(stat.total, 1)
+                let openW    = geo.size.width * CGFloat(stat.open)    / CGFloat(total)
+                let resolvedW = geo.size.width * CGFloat(stat.resolved) / CGFloat(total)
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3).fill(Color(.systemGray5)).frame(height: 6)
+                    HStack(spacing: 1) {
+                        if stat.open > 0 {
+                            RoundedRectangle(cornerRadius: 3).fill(Color.red.opacity(0.7)).frame(width: openW, height: 6)
+                        }
+                        if stat.resolved > 0 {
+                            RoundedRectangle(cornerRadius: 3).fill(Color.green.opacity(0.8)).frame(width: resolvedW, height: 6)
+                        }
+                    }
+                }
+            }
+            .frame(height: 6)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
     }
 }
 
