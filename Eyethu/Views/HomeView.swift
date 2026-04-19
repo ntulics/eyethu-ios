@@ -166,39 +166,9 @@ struct HomeView: View {
                     }
                     .padding(.horizontal, 20)
 
-                    // Recent issues
-                    VStack(alignment: .leading, spacing: 0) {
-                        HStack {
-                            Label("Recent Issues", systemImage: "clock.fill")
-                                .font(.system(size: 15, weight: .semibold))
-                            Spacer()
-                            NavigationLink("View all") { IssueListView() }
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(.teal)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 16)
-                        .padding(.bottom, 8)
-
-                        Divider().padding(.horizontal, 16)
-
-                        ForEach(store.issues.prefix(5)) { issue in
-                            NavigationLink(destination: IssueDetailView(issue: issue)) {
-                                IssueRowView(issue: issue)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 6)
-                            }
-                            .buttonStyle(.plain)
-
-                            if issue.id != store.issues.prefix(5).last?.id {
-                                Divider().padding(.horizontal, 16)
-                            }
-                        }
-                        .padding(.bottom, 8)
-                    }
-                    .background(.background, in: RoundedRectangle(cornerRadius: 20))
-                    .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
-                    .padding(.horizontal, 20)
+                    // National overview
+                    NationalStatsCard(store: store)
+                        .padding(.horizontal, 20)
 
                     // Municipal Leaderboard
                     if !store.municipalityLeaderboard.isEmpty {
@@ -235,6 +205,40 @@ struct HomeView: View {
                         .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
                         .padding(.horizontal, 20)
                     }
+
+                    // Recent issues (3 max)
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack {
+                            Label("Recent Issues", systemImage: "clock.fill")
+                                .font(.system(size: 15, weight: .semibold))
+                            Spacer()
+                            NavigationLink("View all") { IssueListView() }
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.teal)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                        .padding(.bottom, 8)
+
+                        Divider().padding(.horizontal, 16)
+
+                        ForEach(store.issues.prefix(3)) { issue in
+                            NavigationLink(destination: IssueDetailView(issue: issue)) {
+                                IssueRowView(issue: issue)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 6)
+                            }
+                            .buttonStyle(.plain)
+
+                            if issue.id != store.issues.prefix(3).last?.id {
+                                Divider().padding(.horizontal, 16)
+                            }
+                        }
+                        .padding(.bottom, 8)
+                    }
+                    .background(.background, in: RoundedRectangle(cornerRadius: 20))
+                    .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
+                    .padding(.horizontal, 20)
 
                     // Category + notices
                     HStack(spacing: 12) {
@@ -408,6 +412,107 @@ struct MunicipalityLeaderboardRow: View {
         .padding(.vertical, 10)
     }
 }
+
+// MARK: - National Stats Card
+
+struct NationalStatsCard: View {
+    let store: IssueStore
+
+    private var topType: IssueType? { store.typeBreakdown.first?.0 }
+    private var activeMunis: Int { store.municipalityLeaderboard.count }
+    private var resolutionPct: Int { Int((store.resolutionRate * 100).rounded()) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack {
+                HStack(spacing: 6) {
+                    Image(systemName: "flag.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 26, height: 26)
+                        .background(Color(hex: "#007A4D"), in: RoundedRectangle(cornerRadius: 7))
+                    Text("National")
+                        .font(.system(size: 15, weight: .semibold))
+                }
+                Spacer()
+                Text("South Africa")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
+
+            Divider().padding(.horizontal, 16)
+
+            // Stats row
+            HStack(spacing: 0) {
+                NationalStatItem(
+                    value: "\(store.issues.count)",
+                    label: "Total Issues",
+                    icon: "exclamationmark.bubble.fill",
+                    color: .orange
+                )
+                Divider().frame(height: 44)
+                NationalStatItem(
+                    value: "\(resolutionPct)%",
+                    label: "Resolved",
+                    icon: "checkmark.seal.fill",
+                    color: .green
+                )
+                Divider().frame(height: 44)
+                NationalStatItem(
+                    value: "\(activeMunis)",
+                    label: "Municipalities",
+                    icon: "building.2.fill",
+                    color: .teal
+                )
+                if let top = topType {
+                    Divider().frame(height: 44)
+                    NationalStatItem(
+                        value: top.displayName,
+                        label: "Top Issue",
+                        icon: top.icon,
+                        color: top.color
+                    )
+                }
+            }
+            .padding(.vertical, 12)
+        }
+        .background(.background, in: RoundedRectangle(cornerRadius: 20))
+        .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
+    }
+}
+
+struct NationalStatItem: View {
+    let value: String
+    let label: String
+    let icon: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 16))
+                .foregroundStyle(color)
+            Text(value)
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Status Count Card
 
 struct StatusCountCard: View {
     let label: String
