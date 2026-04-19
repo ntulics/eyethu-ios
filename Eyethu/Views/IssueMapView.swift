@@ -49,12 +49,15 @@ struct IssueMapView: View {
             .onMapCameraChange(frequency: .continuous) { ctx in
                 mapCenter = ctx.region.center
             }
-
             // ── Crosshair (report mode only) ───────────────────────────────────
-            if let rt = reportType {
-                ReportCrosshair(type: rt)
-                    .allowsHitTesting(false)
-                    .transition(.opacity)
+            // Attached as an overlay ON the map so both share the same frame,
+            // eliminating the safe-area offset that caused coordinate drift.
+            .overlay {
+                if let rt = reportType {
+                    ReportCrosshair(type: rt)
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+                }
             }
 
             // ── Instruction banner (report mode) ──────────────────────────────

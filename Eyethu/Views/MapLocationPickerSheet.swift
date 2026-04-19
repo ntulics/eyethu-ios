@@ -20,22 +20,22 @@ struct MapLocationPickerSheet: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                // ── Map ──────────────────────────────────────────────────────
-                Map(position: $cameraPosition)
-                    .mapStyle(.standard(elevation: .realistic))
-                    .ignoresSafeArea(edges: .bottom)
-                    .onMapCameraChange(frequency: .continuous) { ctx in
-                        mapCenter = ctx.region.center
-                    }
-
-                // ── Crosshair ─────────────────────────────────────────────
-                PickerCrosshair()
-                    .allowsHitTesting(false)
-
-                // ── Instruction + Confirm ─────────────────────────────────
-                VStack {
-                    // Top hint
+            // The crosshair and overlays are attached directly to the Map via
+            // .overlay so they share the exact same frame — eliminating the
+            // safe-area offset that caused pin-tip coordinate drift.
+            Map(position: $cameraPosition)
+                .mapStyle(.standard(elevation: .realistic))
+                .ignoresSafeArea(edges: .bottom)
+                .onMapCameraChange(frequency: .continuous) { ctx in
+                    mapCenter = ctx.region.center
+                }
+                // Crosshair — same coordinate space as the map
+                .overlay {
+                    PickerCrosshair()
+                        .allowsHitTesting(false)
+                }
+                // Top hint pill
+                .overlay(alignment: .top) {
                     Text("Pan map to the exact spot")
                         .font(.system(size: 13, weight: .medium))
                         .padding(.horizontal, 16)
@@ -44,17 +44,11 @@ struct MapLocationPickerSheet: View {
                         .shadow(color: .black.opacity(0.1), radius: 6, y: 2)
                         .padding(.top, 12)
                         .allowsHitTesting(false)
-
-                    Spacer()
-
-                    // Confirm bar — snaps to road before calling back
+                }
+                // Confirm bar
+                .overlay(alignment: .bottom) {
                     Button {
-                        // Use the exact map-centre the user panned to.
-                        // Geocode is called later (in ReportIssueView) only to
-                        // resolve a street name — it never overrides these coords.
-                        let lat = mapCenter.latitude
-                        let lon = mapCenter.longitude
-                        onSelect(lat, lon)
+                        onSelect(mapCenter.latitude, mapCenter.longitude)
                         dismiss()
                     } label: {
                         Label("Confirm location", systemImage: "checkmark.circle.fill")
@@ -65,11 +59,11 @@ struct MapLocationPickerSheet: View {
                             .foregroundStyle(.white)
                     }
                     .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                    .padding(.top, 12)
+                    .padding(.bottom, 16)
                     .background(.regularMaterial)
                     .shadow(color: .black.opacity(0.08), radius: 12, y: -3)
                 }
-            }
             .navigationTitle("Pin Location")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

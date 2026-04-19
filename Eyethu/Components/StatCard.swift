@@ -74,12 +74,12 @@ struct ActivityBars: View {
     let accentColor: Color
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 6) {
+        HStack(alignment: .bottom, spacing: 4) {
             ForEach(days) { day in
                 VStack(spacing: 3) {
                     RoundedRectangle(cornerRadius: 3)
                         .fill(day.hasReport ? accentColor : accentColor.opacity(0.2))
-                        .frame(width: 18, height: day.hasReport ? CGFloat(14 + day.count * 4) : 14)
+                        .frame(width: 14, height: day.hasReport ? CGFloat(14 + day.count * 4) : 14)
                         .animation(.easeInOut, value: day.count)
                     Text(day.weekday)
                         .font(.system(size: 9, weight: .medium))
