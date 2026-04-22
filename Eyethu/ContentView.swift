@@ -3,9 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var store = IssueStore()
     @State private var selectedTab = 0
-    // App-drawer report flow: type picker → report sheet
-    @State private var showTypePicker  = false
-    @State private var pendingType: IssueType? = nil
+    // Simplified report flow: one sheet
     @State private var showReportSheet = false
 
     var body: some View {
@@ -40,9 +38,9 @@ struct ContentView: View {
             }
             .tint(.teal)
 
-            // Floating action button — opens type-picker drawer first
+            // Floating action button — opens report sheet directly
             Button {
-                showTypePicker = true
+                showReportSheet = true
             } label: {
                 ZStack {
                     Circle()
@@ -57,24 +55,12 @@ struct ContentView: View {
             .offset(y: -4)
         }
         .environmentObject(store)
-        // Step 1 — type picker drawer (same style as the map)
-        .sheet(isPresented: $showTypePicker, onDismiss: {
-            if pendingType != nil { showReportSheet = true }
-        }) {
-            IssueTypePickerSheet { type in
-                pendingType = type
-                showTypePicker = false
-            }
-            .presentationDetents([.height(360)])
-            .presentationDragIndicator(.visible)
-            .presentationCornerRadius(24)
-        }
-        // Step 2 — full report form with progress bar
-        .sheet(isPresented: $showReportSheet, onDismiss: {
-            pendingType = nil
-        }) {
-            ReportIssueView(prefillType: pendingType)
+        // Direct report form as a drawer
+        .sheet(isPresented: $showReportSheet) {
+            ReportIssueView()
                 .environmentObject(store)
+                .presentationDetents([.fraction(0.6), .large])
+                .presentationDragIndicator(.visible)
         }
         .task {
             await store.restoreSession()

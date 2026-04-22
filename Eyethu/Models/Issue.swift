@@ -85,8 +85,9 @@ struct Issue: Identifiable, Codable {
     let ward: String?
     let tenantId: Int?
     let status: IssueStatus
-    let source: String
-    let reportCount: Int
+    let source: String?
+    let reportCount: Int?
+    let disagreeCount: Int?
     let imageURL: String?
     let createdAt: Date
     // Populated by GET /api/issues/[id] (not present in list responses)
@@ -97,6 +98,7 @@ struct Issue: Identifiable, Codable {
         case streetAddress = "street_address"
         case tenantId      = "tenant_id"
         case reportCount   = "report_count"
+        case disagreeCount = "disagree_count"
         case imageURL      = "image_url"
         case createdAt     = "created_at"
     }
@@ -126,8 +128,8 @@ struct Issue: Identifiable, Codable {
 struct DuplicateIssueResponse: Codable {
     let duplicate: Bool
     let existingId: Int
-    let reportCount: Int
-    let alreadyCounted: Bool
+    let reportCount: Int?
+    let alreadyCounted: Bool?
 
     enum CodingKeys: String, CodingKey {
         case duplicate

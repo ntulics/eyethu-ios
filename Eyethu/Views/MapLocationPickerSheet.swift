@@ -14,35 +14,18 @@ struct MapLocationPickerSheet: View {
             span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
         )
     )
-    // The coordinate at the crosshair tip (ZStack centre), updated via MapProxy.
-    // Using proxy.convert(screenCentre) instead of ctx.region.center eliminates
-    // the ~17pt safe-area offset between the Map's extended frame and the ZStack.
     @State private var mapCenter    = CLLocationCoordinate2D(latitude: -26.2041, longitude: 28.0473)
     @State private var didCenterOnUser = false
-    @State private var containerSize: CGSize = .zero
 
     var body: some View {
         NavigationStack {
             ZStack {
                 // ── Map ──────────────────────────────────────────────────────
-                MapReader { proxy in
-                    Map(position: $cameraPosition)
-                        .mapStyle(.standard(elevation: .realistic))
-                        .ignoresSafeArea(edges: .bottom)
-                        .onMapCameraChange(frequency: .continuous) { _ in
-                            // Convert the ZStack centre pixel → geographic coordinate.
-                            // This is accurate regardless of how far the map extends
-                            // below the safe area.
-                            guard containerSize != .zero else { return }
-                            let screenCentre = CGPoint(
-                                x: containerSize.width  / 2,
-                                y: containerSize.height / 2
-                            )
-                            if let coord = proxy.convert(screenCentre, from: .named("pickerMap")) {
-                                mapCenter = coord
-                            }
-                        }
-                }
+                Map(position: $cameraPosition)
+                    .mapStyle(.standard(elevation: .realistic))
+                    .onMapCameraChange(frequency: .continuous) { context in
+                        mapCenter = context.region.center
+                    }
 
                 // ── Crosshair — stays at the ZStack/screen centre ─────────
                 PickerCrosshair()
@@ -78,16 +61,6 @@ struct MapLocationPickerSheet: View {
                     .shadow(color: .black.opacity(0.08), radius: 12, y: -3)
                 }
             }
-            // Named coordinate space so MapProxy.convert knows which frame to use
-            .coordinateSpace(name: "pickerMap")
-            // Capture the ZStack's actual size (excludes safe areas)
-            .background(
-                GeometryReader { geo in
-                    Color.clear
-                        .onAppear { containerSize = geo.size }
-                        .onChange(of: geo.size) { _, s in containerSize = s }
-                }
-            )
             .navigationTitle("Pin Location")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

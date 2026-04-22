@@ -11,14 +11,11 @@ struct IssueMapView: View {
             span: MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03)
         )
     )
-    // Coordinate at the crosshair tip (screen centre), resolved via MapProxy.convert
-    // so it matches what the user sees regardless of safe-area extensions.
     @State private var mapCenter = CLLocationCoordinate2D(latitude: -26.2041, longitude: 28.0473)
-    // ZStack size captured from GeometryReader so we can compute the screen centre
-    @State private var zstackSize: CGSize = .zero
 
     // Report-pin flow
     @State private var reportType: IssueType? = nil
+    @State private var pendingReportCoordinate: CLLocationCoordinate2D? = nil
     @State private var showTypePicker  = false
     @State private var showReportSheet = false
 
@@ -28,43 +25,27 @@ struct IssueMapView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-
             // ── Map ────────────────────────────────────────────────────────────
-            // MapReader gives us proxy.convert which converts a screen pixel to
-            // a geographic coordinate. This is the only reliable way to get the
-            // coordinate AT the crosshair tip when the map extends beyond the
-            // ZStack boundary via .ignoresSafeArea.
-            MapReader { proxy in
-                Map(position: $cameraPosition) {
-                    UserAnnotation()
+            Map(position: $cameraPosition) {
+                UserAnnotation()
 
-                    ForEach(mappableIssues) { issue in
-                        if let coord = issue.coordinate {
-                            Annotation(issue.type.displayName, coordinate: coord) {
-                                IssueMapPin(issue: issue, isSelected: selectedIssue?.id == issue.id)
-                                    .onTapGesture {
-                                        guard reportType == nil else { return }
-                                        withAnimation(.spring(response: 0.3)) {
-                                            selectedIssue = selectedIssue?.id == issue.id ? nil : issue
-                                        }
+                ForEach(mappableIssues) { issue in
+                    if let coord = issue.coordinate {
+                        Annotation(issue.type.displayName, coordinate: coord) {
+                            IssueMapPin(issue: issue, isSelected: selectedIssue?.id == issue.id)
+                                .onTapGesture {
+                                    guard reportType == nil else { return }
+                                    withAnimation(.spring(response: 0.3)) {
+                                        selectedIssue = selectedIssue?.id == issue.id ? nil : issue
                                     }
-                            }
+                                }
                         }
                     }
                 }
-                .mapStyle(.standard(elevation: .realistic))
-                .ignoresSafeArea(edges: .bottom)
-                .onMapCameraChange(frequency: .continuous) { _ in
-                    guard zstackSize != .zero else { return }
-                    // Convert the ZStack centre pixel (= crosshair tip) to a coordinate.
-                    // ctx.region.center would give the centre of the full extended map
-                    // frame — wrong. proxy.convert gives the exact geographic point
-                    // at the screen position we specify.
-                    let centre = CGPoint(x: zstackSize.width / 2, y: zstackSize.height / 2)
-                    if let coord = proxy.convert(centre, from: .named("reportMap")) {
-                        mapCenter = coord
-                    }
-                }
+            }
+            .mapStyle(.standard(elevation: .realistic))
+            .onMapCameraChange(frequency: .continuous) { context in
+                mapCenter = context.region.center
             }
 
             // ── Crosshair (report mode only) — stays in ZStack at screen centre ─
@@ -154,23 +135,15 @@ struct IssueMapView: View {
             // ── Report confirm bar ─────────────────────────────────────────────
             if let rt = reportType {
                 ReportConfirmBar(type: rt) {
+                    pendingReportCoordinate = nil
                     withAnimation(.spring(response: 0.3)) { reportType = nil }
                 } onConfirm: {
+                    pendingReportCoordinate = mapCenter
                     showReportSheet = true
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        // Named coordinate space so MapProxy knows which frame to convert from
-        .coordinateSpace(name: "reportMap")
-        // Capture the ZStack's pixel size (safe-area-respecting) for the proxy call
-        .background(
-            GeometryReader { geo in
-                Color.clear
-                    .onAppear { zstackSize = geo.size }
-                    .onChange(of: geo.size) { _, s in zstackSize = s }
-            }
-        )
         .animation(.spring(response: 0.35), value: reportType)
         .onAppear {
             Task {
@@ -208,14 +181,18 @@ struct IssueMapView: View {
         }
         // ── Report issue sheet ────────────────────────────────────────────────
         .sheet(isPresented: $showReportSheet, onDismiss: {
+            pendingReportCoordinate = nil
             withAnimation(.spring(response: 0.3)) { reportType = nil }
         }) {
-            if let rt = reportType {
+            if let rt = reportType, let coord = pendingReportCoordinate {
                 ReportIssueView(
                     prefillType: rt,
-                    prefillLatitude: mapCenter.latitude,
-                    prefillLongitude: mapCenter.longitude
+                    prefillLatitude: coord.latitude,
+                    prefillLongitude: coord.longitude
                 )
+                .environmentObject(store)
+                .presentationDetents([.fraction(0.6), .large])
+                .presentationDragIndicator(.visible)
             }
         }
     }

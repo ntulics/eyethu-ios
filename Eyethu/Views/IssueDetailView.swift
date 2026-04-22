@@ -7,9 +7,11 @@ struct IssueDetailView: View {
     @State private var showShareSheet   = false
     @State private var isWatching       = false
     @State private var isUpdatingStatus = false
+    @State private var isVoting         = false
     @State private var errorMessage: String?
     @State private var photos: [IssuePhoto] = []
     @State private var photoPage = 0
+    @State private var showFullMap = false
 
     var body: some View {
         ScrollView {
@@ -66,17 +68,50 @@ struct IssueDetailView: View {
 
                 VStack(alignment: .leading, spacing: 16) {
 
-                    // Title + status
-                    HStack(alignment: .top) {
+                    // Status Badge (Moved up)
+                    StatusBadge(status: issue.status)
+                        .padding(.top, 8)
+
+                    // Title + Voting Buttons
+                    HStack(alignment: .center) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(issue.type.displayName)
-                                .font(.system(size: 22, weight: .bold))
+                                .font(.system(size: 24, weight: .bold))
                             Text(issue.displayStreet)
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
+                        
                         Spacer()
-                        StatusBadge(status: issue.status)
+
+                        // Voting Stack
+                        HStack(spacing: 8) {
+                            // Agree Button
+                            Button { voteOnIssue("up") } label: {
+                                VStack(spacing: 4) {
+                                    Image(systemName: "hand.thumbsup.fill")
+                                    Text("Agree").font(.system(size: 10, weight: .bold))
+                                }
+                                .padding(.vertical, 8)
+                                .frame(width: 54)
+                                .background(Color.green.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                                .foregroundStyle(.green)
+                            }
+                            .disabled(isVoting)
+
+                            // Disagree Button
+                            Button { voteOnIssue("down") } label: {
+                                VStack(spacing: 4) {
+                                    Image(systemName: "hand.thumbsdown.fill")
+                                    Text("Disagree").font(.system(size: 10, weight: .bold))
+                                }
+                                .padding(.vertical, 8)
+                                .frame(width: 58)
+                                .background(Color.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                                .foregroundStyle(.red)
+                            }
+                            .disabled(isVoting)
+                        }
                     }
 
                     if let desc = issue.description, !desc.isEmpty {
@@ -123,10 +158,12 @@ struct IssueDetailView: View {
                         if let ward = issue.ward {
                             MetaItem(icon: "mappin",  label: ward,                              title: "Ward")
                         }
-                        MetaItem(icon: "person.2",    label: "\(issue.reportCount) report(s)",  title: "Reports")
+                        MetaItem(icon: "person.2",    label: "\(issue.reportCount ?? 1) agreed",  title: "Agree")
+                        MetaItem(icon: "person.2.slash", label: "\(issue.disagreeCount ?? 0) disagreed", title: "Disagree")
+                        
                         MetaItem(
-                            icon:  issue.source == "whatsapp" ? "message.fill" : issue.source == "ios" ? "iphone" : "globe",
-                            label: issue.source == "whatsapp" ? "WhatsApp" : issue.source == "ios" ? "iOS App" : "Web",
+                            icon:  (issue.source ?? "web") == "whatsapp" ? "message.fill" : (issue.source ?? "ios") == "ios" ? "iphone" : "globe",
+                            label: (issue.source ?? "web") == "whatsapp" ? "WhatsApp" : (issue.source ?? "ios") == "ios" ? "iOS App" : "Web",
                             title: "Source"
                         )
                         if let muni = issue.municipality {
@@ -150,23 +187,50 @@ struct IssueDetailView: View {
 
                     Divider()
 
-                    // Mini map
+                    // Mini map (Interactive)
                     if let coord = issue.coordinate {
-                        Map(initialPosition: .region(MKCoordinateRegion(
-                            center: coord,
-                            span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
-                        ))) {
-                            Annotation(issue.type.displayName, coordinate: coord) {
-                                IssueMapPin(issue: issue, isSelected: true)
+                        Button {
+                            showFullMap = true
+                        } label: {
+                            Map(initialPosition: .region(MKCoordinateRegion(
+                                center: coord,
+                                span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+                            ))) {
+                                Annotation(issue.type.displayName, coordinate: coord) {
+                                    IssueMapPin(issue: issue, isSelected: true)
+                                }
                             }
+                            .frame(height: 160)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
                         }
-                        .frame(height: 160)
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
-                        .disabled(true)
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(20)
             }
+        }
+        .sheet(isPresented: $showFullMap) {
+            NavigationStack {
+                if let coord = issue.coordinate {
+                    Map(initialPosition: .region(MKCoordinateRegion(
+                        center: coord,
+                        span: MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)
+                    ))) {
+                        Annotation(issue.type.displayName, coordinate: coord) {
+                            IssueMapPin(issue: issue, isSelected: true)
+                        }
+                    }
+                    .navigationTitle("Location")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Done") { showFullMap = false }
+                        }
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
         .task {
             // Fetch photos separately (list API doesn't include them)
@@ -207,6 +271,19 @@ struct IssueDetailView: View {
                 errorMessage = error.localizedDescription
             }
             isUpdatingStatus = false
+        }
+    }
+
+    private func voteOnIssue(_ type: String) {
+        isVoting = true
+        errorMessage = nil
+        Task {
+            do {
+                try await store.vote(issue: issue, type: type)
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            isVoting = false
         }
     }
 

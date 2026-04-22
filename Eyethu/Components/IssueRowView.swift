@@ -30,8 +30,8 @@ struct IssueRowView: View {
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }
-                    if issue.reportCount > 1 {
-                        Label("\(issue.reportCount) reports", systemImage: "person.2")
+                    if (issue.reportCount ?? 1) > 1 {
+                        Label("\(issue.reportCount ?? 1) reports", systemImage: "person.2")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }

@@ -206,6 +206,53 @@ struct HomeView: View {
                         .padding(.horizontal, 20)
                     }
 
+                    // Categories
+                    if !store.typeLeaderboard.isEmpty {
+                        VStack(alignment: .leading, spacing: 0) {
+                            HStack(alignment: .firstTextBaseline) {
+                                Label("Categories", systemImage: "square.grid.2x2.fill")
+                                    .font(.system(size: 15, weight: .semibold))
+                                Spacer()
+                                Text("\(store.issues.count) Total")
+                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(.teal)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.top, 16)
+                            .padding(.bottom, 6)
+
+                            HStack {
+                                Text("Issue types")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                HStack(spacing: 10) {
+                                    Label("Issues", systemImage: "circle.fill")
+                                        .font(.caption2)
+                                        .foregroundStyle(.red.opacity(0.7))
+                                    Label("Resolved", systemImage: "circle.fill")
+                                        .font(.caption2)
+                                        .foregroundStyle(.green.opacity(0.8))
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 12)
+
+                            Divider().padding(.horizontal, 16)
+
+                            ForEach(store.typeLeaderboard) { stat in
+                                CategoryLeaderboardRow(stat: stat)
+                                if stat.id != store.typeLeaderboard.last?.id {
+                                    Divider().padding(.horizontal, 16)
+                                }
+                            }
+                            .padding(.bottom, 8)
+                        }
+                        .background(.background, in: RoundedRectangle(cornerRadius: 20))
+                        .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
+                        .padding(.horizontal, 20)
+                    }
+
                     // Recent issues (3 max)
                     VStack(alignment: .leading, spacing: 0) {
                         HStack {
@@ -238,33 +285,6 @@ struct HomeView: View {
                     }
                     .background(.background, in: RoundedRectangle(cornerRadius: 20))
                     .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
-                    .padding(.horizontal, 20)
-
-                    // Category + notices
-                    HStack(spacing: 12) {
-                        StatCard(title: "Categories", subtitle: "Issue types") {
-                            VStack(alignment: .leading, spacing: 6) {
-                                ForEach(store.typeBreakdown.prefix(4), id: \.0) { type, count in
-                                    HStack {
-                                        IssueTypeGlyph(type: type, size: 13, color: .secondary)
-                                            .frame(width: 16)
-                                        Text(type.displayName).font(.caption).foregroundStyle(.secondary)
-                                        Spacer()
-                                        Text("\(count)").font(.caption.bold()).foregroundStyle(.primary)
-                                    }
-                                }
-                            }
-                        }
-
-                        StatCard(title: "Total Reports", subtitle: "All time") {
-                            Text("\(store.issues.count)")
-                                .font(.system(size: 36, weight: .bold, design: .rounded))
-                                .foregroundStyle(.orange)
-                            Text("across \(store.typeBreakdown.count) categories")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
                     .padding(.horizontal, 20)
 
                     Spacer(minLength: 20)
@@ -402,6 +422,67 @@ struct MunicipalityLeaderboardRow: View {
                         }
                         if stat.resolved > 0 {
                             RoundedRectangle(cornerRadius: 3).fill(Color.green.opacity(0.8)).frame(width: resolvedW, height: 6)
+                        }
+                    }
+                }
+            }
+            .frame(height: 6)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+}
+
+struct CategoryLeaderboardRow: View {
+    let stat: IssueStore.TypeStat
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .center, spacing: 10) {
+                HStack(spacing: 10) {
+                    IssueTypeGlyph(type: stat.type, size: 15, color: stat.type.color)
+                        .frame(width: 18)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(stat.type.displayName)
+                            .font(.system(size: 13, weight: .semibold))
+                            .lineLimit(1)
+                        Text("\(stat.total) total")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Spacer()
+
+                HStack(spacing: 12) {
+                    Label("\(stat.active)", systemImage: "exclamationmark.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.red)
+                    Label("\(stat.resolved)", systemImage: "checkmark.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.green)
+                }
+            }
+
+            GeometryReader { geo in
+                let total = max(stat.total, 1)
+                let activeW = geo.size.width * CGFloat(stat.active) / CGFloat(total)
+                let resolvedW = geo.size.width * CGFloat(stat.resolved) / CGFloat(total)
+
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Color(.systemGray5))
+                        .frame(height: 6)
+                    HStack(spacing: 1) {
+                        if stat.active > 0 {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color.red.opacity(0.7))
+                                .frame(width: activeW, height: 6)
+                        }
+                        if stat.resolved > 0 {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color.green.opacity(0.8))
+                                .frame(width: resolvedW, height: 6)
                         }
                     }
                 }

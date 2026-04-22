@@ -48,6 +48,14 @@ class IssueStore: ObservableObject {
         let resolved: Int
     }
 
+    struct TypeStat: Identifiable {
+        let id: IssueType
+        let type: IssueType
+        let total: Int
+        let active: Int
+        let resolved: Int
+    }
+
     var municipalityLeaderboard: [MuniStat] {
         var counts: [String: (total: Int, open: Int, resolved: Int)] = [:]
         for issue in issues {
@@ -66,11 +74,30 @@ class IssueStore: ObservableObject {
             .map { $0 }
     }
 
-    var typeBreakdown: [(IssueType, Int)] {
+    var typeLeaderboard: [TypeStat] {
         IssueType.allCases.compactMap { type in
-            let count = issues.filter { $0.type == type }.count
-            return count > 0 ? (type, count) : nil
-        }.sorted { $0.1 > $1.1 }
+            let matchingIssues = issues.filter { $0.type == type }
+            guard !matchingIssues.isEmpty else { return nil }
+            let resolved = matchingIssues.filter { $0.status == .resolved }.count
+            let active = matchingIssues.count - resolved
+            return TypeStat(
+                id: type,
+                type: type,
+                total: matchingIssues.count,
+                active: active,
+                resolved: resolved
+            )
+        }
+        .sorted { lhs, rhs in
+            if lhs.total == rhs.total {
+                return lhs.type.displayName < rhs.type.displayName
+            }
+            return lhs.total > rhs.total
+        }
+    }
+
+    var typeBreakdown: [(IssueType, Int)] {
+        typeLeaderboard.map { ($0.type, $0.total) }
     }
 
     // MARK: - Fetch
@@ -130,6 +157,13 @@ class IssueStore: ObservableObject {
         }
     }
 
+    func vote(issue: Issue, type: String) async throws {
+        let updated = try await APIService.shared.voteOnIssue(id: issue.id, vote: type)
+        if let index = issues.firstIndex(where: { $0.id == issue.id }) {
+            issues[index] = updated
+        }
+    }
+
     // MARK: - Auth
 
     func signIn(email: String, password: String) async throws -> Bool {
@@ -160,35 +194,35 @@ class IssueStore: ObservableObject {
                   latitude: -26.2041, longitude: 28.0473,
                   municipality: "City of Johannesburg", streetAddress: "700-748 SE Monroe St",
                   ward: "Ward 12", tenantId: 1,
-                  status: .open, source: "web", reportCount: 5, imageURL: nil,
+                  status: .open, source: "web", reportCount: 5, disagreeCount: 0, imageURL: nil,
                   createdAt: cal.date(byAdding: .hour, value: -2, to: now)!, photos: nil),
             Issue(id: 2, type: .waterLeak,
                   description: "Burst pipe flooding the sidewalk.",
                   latitude: -26.2051, longitude: 28.0483,
                   municipality: "City of Johannesburg", streetAddress: "12 Main Rd",
                   ward: "Ward 12", tenantId: 1,
-                  status: .inProgress, source: "whatsapp", reportCount: 3, imageURL: nil,
+                  status: .inProgress, source: "whatsapp", reportCount: 3, disagreeCount: 1, imageURL: nil,
                   createdAt: cal.date(byAdding: .day, value: -1, to: now)!, photos: nil),
             Issue(id: 3, type: .streetlight,
                   description: "Street light out for 3 days.",
                   latitude: -26.2031, longitude: 28.0463,
                   municipality: "City of Johannesburg", streetAddress: "45 Oak Ave",
                   ward: "Ward 13", tenantId: 1,
-                  status: .resolved, source: "web", reportCount: 2, imageURL: nil,
+                  status: .resolved, source: "web", reportCount: 2, disagreeCount: 0, imageURL: nil,
                   createdAt: cal.date(byAdding: .day, value: -5, to: now)!, photos: nil),
             Issue(id: 4, type: .powerOutage,
                   description: "No electricity in the whole block.",
                   latitude: -26.2021, longitude: 28.0493,
                   municipality: "City of Johannesburg", streetAddress: "Bree St Block C",
                   ward: "Ward 12", tenantId: 1,
-                  status: .inProgress, source: "whatsapp", reportCount: 12, imageURL: nil,
+                  status: .inProgress, source: "whatsapp", reportCount: 12, disagreeCount: 2, imageURL: nil,
                   createdAt: cal.date(byAdding: .hour, value: -18, to: now)!, photos: nil),
             Issue(id: 5, type: .pothole,
                   description: "Multiple potholes along the stretch.",
                   latitude: -26.2011, longitude: 28.0503,
                   municipality: "City of Johannesburg", streetAddress: "N1 Freeway Offramp",
                   ward: "Ward 12", tenantId: 1,
-                  status: .resolved, source: "web", reportCount: 9, imageURL: nil,
+                  status: .resolved, source: "web", reportCount: 9, disagreeCount: 0, imageURL: nil,
                   createdAt: cal.date(byAdding: .day, value: -10, to: now)!, photos: nil),
         ]
     }

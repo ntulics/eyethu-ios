@@ -6,7 +6,6 @@ struct ReportIssueView: View {
     @EnvironmentObject var store: IssueStore
     @Environment(\.dismiss) private var dismiss
 
-    // Optional pre-fill values — supplied when launched from the map pin flow
     var prefillType: IssueType? = nil
     var prefillLatitude: Double? = nil
     var prefillLongitude: Double? = nil
@@ -17,12 +16,13 @@ struct ReportIssueView: View {
     @State private var latitude: Double? = nil
     @State private var longitude: Double? = nil
     @State private var municipality: String? = nil
-    // Multi-photo: up to 5 per issue
+
     @State private var photoDatas: [Data] = []
     @State private var showImageSourcePicker = false
     @State private var showCamera = false
     @State private var showLibrary = false
     private let maxPhotos = 5
+
     @State private var showMapPicker = false
     @State private var step = 0
     @State private var isSubmitting = false
@@ -31,11 +31,19 @@ struct ReportIssueView: View {
     @State private var submitError: String? = nil
     @State private var isGeolocating = false
 
+    private var trimmedStreetAddress: String {
+        streetAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var hasSelectedCoordinates: Bool {
+        latitude != nil && longitude != nil
+    }
+
     var isStepValid: Bool {
         switch step {
         case 0: return true
-        case 1: return true // description is optional
-        case 2: return !streetAddress.trimmingCharacters(in: .whitespaces).isEmpty
+        case 1: return true
+        case 2: return hasSelectedCoordinates || !trimmedStreetAddress.isEmpty
         default: return true
         }
     }
@@ -43,23 +51,22 @@ struct ReportIssueView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Progress bar
-                HStack(spacing: 6) {
+                // Compact Progress Bar
+                HStack(spacing: 4) {
                     ForEach(0..<4) { i in
                         Capsule()
                             .fill(i <= step ? Color.teal : Color(.systemGray4))
-                            .frame(height: 4)
-                            .animation(.easeInOut, value: step)
+                            .frame(height: 3)
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 24)
                 .padding(.top, 12)
 
                 if let result = submitResult {
                     resultView(result)
                 } else {
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 24) {
+                        VStack(alignment: .leading, spacing: 16) {
                             switch step {
                             case 0: typeStep
                             case 1: descriptionStep
@@ -69,15 +76,10 @@ struct ReportIssueView: View {
                             }
 
                             if let err = submitError {
-                                Label(err, systemImage: "exclamationmark.triangle.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(.orange)
-                                    .padding(10)
-                                    .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+                                Text(err).font(.caption).foregroundStyle(.red).padding(.horizontal)
                             }
                         }
                         .padding(20)
-                        .animation(.easeInOut(duration: 0.25), value: step)
                     }
 
                     bottomBar
@@ -90,360 +92,224 @@ struct ReportIssueView: View {
                     Button("Cancel") { dismiss() }.foregroundStyle(.secondary)
                 }
             }
-            // Map location picker (opened from the location step)
-            .sheet(isPresented: $showMapPicker) {
-                MapLocationPickerSheet { lat, lon in
-                    latitude  = lat
-                    longitude = lon
-                    isGeolocating = true
-                    Task {
-                        if let result = try? await APIService.shared.geocode(lat: lat, lon: lon) {
-                            await MainActor.run {
-                                // Geocode text only — never override the pin coordinates.
-                                if let name = result.streetName, streetAddress.isEmpty {
-                                    streetAddress = name
-                                } else if let addr = result.streetAddress, streetAddress.isEmpty {
-                                    streetAddress = addr
-                                }
-                                if municipality == nil { municipality = result.municipality }
-                                isGeolocating = false
-                            }
-                        } else {
-                            await MainActor.run { isGeolocating = false }
-                        }
+            .onChange(of: step) { _, newStep in
+                guard newStep == 2, !isGeolocating else { return }
+                if hasSelectedCoordinates {
+                    if trimmedStreetAddress.isEmpty, let lat = latitude, let lon = longitude {
+                        fetchGeocode(lat: lat, lon: lon)
                     }
+                } else {
+                    useCurrentLocation()
                 }
             }
-            // Pre-fill from map pin flow
             .onAppear {
-                if let type = prefillType {
-                    selectedType = type
-                }
+                if let type = prefillType { selectedType = type }
                 if let lat = prefillLatitude, let lon = prefillLongitude {
-                    latitude  = lat
-                    longitude = lon
-                    // If both type and location are provided, skip the type step
+                    applySelectedLocation(lat: lat, lon: lon, shouldFetchGeocode: true)
                     if prefillType != nil { step = 1 }
-                    // Reverse-geocode to get road-snapped coords + street name
-                    isGeolocating = true
-                    Task {
-                        if let result = try? await APIService.shared.geocode(lat: lat, lon: lon) {
-                            await MainActor.run {
-                                // Only use geocode for display text — never override the
-                                // user's chosen pin coordinates with snapped values.
-                                if let name = result.streetName { streetAddress = name }
-                                else if let addr = result.streetAddress { streetAddress = addr }
-                                municipality = result.municipality
-                                isGeolocating = false
-                            }
-                        } else {
-                            await MainActor.run { isGeolocating = false }
-                        }
-                    }
+                }
+            }
+            .sheet(isPresented: $showMapPicker) {
+                MapLocationPickerSheet { lat, lon in
+                    applySelectedLocation(lat: lat, lon: lon, shouldFetchGeocode: true)
                 }
             }
         }
     }
 
-    // MARK: - Steps
+    // MARK: - Compact Steps
 
     private var typeStep: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            stepHeader(title: "What's the issue?", subtitle: "Select the category that best describes the problem.")
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
+            stepHeader(title: "What's the issue?", subtitle: "Select a category")
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                 ForEach(IssueType.allCases, id: \.self) { type in
-                    TypeCard(type: type, isSelected: selectedType == type) { selectedType = type }
+                    TypeCard(type: type, isSelected: selectedType == type) {
+                        selectedType = type
+                        withAnimation { step = 1 }
+                    }
                 }
             }
         }
     }
 
     private var descriptionStep: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            stepHeader(title: "Describe the issue", subtitle: "Give as much detail as possible to help resolve it faster.")
-            IssueTypeTag(type: selectedType)
+        VStack(alignment: .leading, spacing: 12) {
+            stepHeader(title: "Details", subtitle: "Describe the problem")
             TextEditor(text: $description)
-                .frame(minHeight: 140)
-                .padding(12)
+                .frame(minHeight: 100)
+                .padding(10)
                 .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 12))
                 .overlay(alignment: .topLeading) {
                     if description.isEmpty {
-                        Text("e.g. Large pothole near the intersection…")
-                            .foregroundStyle(.tertiary)
-                            .padding(18)
-                            .allowsHitTesting(false)
+                        Text("e.g. Pothole in the left lane...").foregroundStyle(.tertiary).padding(14)
                     }
                 }
         }
     }
 
     private var locationStep: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            stepHeader(title: "Where is it?", subtitle: "Use your location, drop a pin on the map, or type the address.")
-
-            VStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
+            stepHeader(title: "Where is it?", subtitle: "Confirm the address")
+            VStack(spacing: 8) {
                 TextField("Street address", text: $streetAddress)
                     .textFieldStyle(.roundedBorder)
-                    .autocorrectionDisabled()
-
-                // Use my location
+                
                 Button { useCurrentLocation() } label: {
-                    HStack {
-                        if isGeolocating {
-                            ProgressView().scaleEffect(0.8)
-                        } else {
-                            Image(systemName: "location.fill")
-                        }
-                        Text(isGeolocating ? "Getting location…" : "Use my location")
-                    }
-                    .font(.system(size: 14, weight: .medium))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 11)
-                    .background(Color.teal.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
-                    .foregroundStyle(.teal)
+                    Label(isGeolocating ? "Locating..." : "Use my current location", systemImage: "location.fill")
+                        .font(.subheadline.bold())
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.teal.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
                 }
                 .disabled(isGeolocating)
 
-                // Pin on map
-                Button { showMapPicker = true } label: {
-                    HStack {
-                        Image(systemName: "map.fill")
-                        Text("Pin on map")
+                if let lat = latitude, let lon = longitude {
+                    Button {
+                        showMapPicker = true
+                    } label: {
+                        Map(position: .constant(.region(MKCoordinateRegion(
+                            center: CLLocationCoordinate2D(latitude: lat, longitude: lon),
+                            span: MKCoordinateSpan(latitudeDelta: 0.002, longitudeDelta: 0.002)
+                        )))) {
+                            Marker("", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon))
+                                .tint(selectedType.color)
+                        }
+                        .frame(height: 120)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(.systemGray4), lineWidth: 0.5))
+                        .allowsHitTesting(false) // Makes the map itself non-interactive
                     }
-                    .font(.system(size: 14, weight: .medium))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 11)
-                    .background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 10))
+                    .buttonStyle(.plain)
+                } else {
+                    Button {
+                        showMapPicker = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "map.fill")
+                            Text("Pin on map")
+                        }
+                        .font(.subheadline.bold())
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 10))
+                    }
                     .foregroundStyle(.primary)
                 }
-            }
-
-            if latitude != nil {
-                Label("Location pinned", systemImage: "checkmark.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.green)
             }
         }
     }
 
     private var photoStep: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            stepHeader(
-                title: "Add photos",
-                subtitle: "Up to \(maxPhotos) photos. A photo helps the council assess the issue faster. Optional."
-            )
+        VStack(alignment: .leading, spacing: 12) {
+            stepHeader(title: "Add Photos", subtitle: "Optional, up to 5")
+            
+            HStack(spacing: 8) {
+                if photoDatas.count < maxPhotos {
+                    // Direct Camera Button
+                    Button { showCamera = true } label: {
+                        VStack(spacing: 4) {
+                            Image(systemName: "camera.fill").font(.system(size: 20))
+                            Text("Camera").font(.system(size: 10, weight: .medium))
+                        }
+                        .frame(width: 65, height: 70)
+                        .background(Color.teal.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                        .foregroundStyle(.teal)
+                    }
 
-            // Thumbnail strip
-            if !photoDatas.isEmpty {
+                    // Direct Library Button
+                    Button { showLibrary = true } label: {
+                        VStack(spacing: 4) {
+                            Image(systemName: "photo.on.rectangle.angled").font(.system(size: 20))
+                            Text("Library").font(.system(size: 10, weight: .medium))
+                        }
+                        .frame(width: 65, height: 70)
+                        .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 12))
+                        .foregroundStyle(.primary)
+                    }
+                }
+                
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
+                    HStack(spacing: 8) {
                         ForEach(Array(photoDatas.enumerated()), id: \.offset) { idx, data in
                             if let img = UIImage(data: data) {
                                 ZStack(alignment: .topTrailing) {
                                     Image(uiImage: img)
                                         .resizable().scaledToFill()
-                                        .frame(width: 90, height: 90)
-                                        .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                                    Button {
-                                        photoDatas.remove(at: idx)
-                                    } label: {
+                                        .frame(width: 70, height: 70)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    
+                                    Button { photoDatas.remove(at: idx) } label: {
                                         Image(systemName: "xmark.circle.fill")
-                                            .font(.system(size: 20))
+                                            .font(.system(size: 18))
                                             .foregroundStyle(.white)
-                                            .shadow(color: .black.opacity(0.3), radius: 4)
+                                            .background(Circle().fill(.black.opacity(0.5)))
                                     }
                                     .offset(x: 4, y: -4)
                                 }
                             }
                         }
                     }
-                    .padding(.horizontal, 2)
-                    .padding(.vertical, 2)
-                }
-            }
-
-            // Add photo button (hidden when limit reached)
-            if photoDatas.count < maxPhotos {
-                Button {
-                    showImageSourcePicker = true
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "camera.fill").font(.title3).foregroundStyle(.teal)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Take photo or choose from library")
-                                .font(.subheadline).foregroundStyle(.primary)
-                            Text("\(photoDatas.count)/\(maxPhotos) photos added")
-                                .font(.caption2).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
-                    }
-                    .padding(14)
-                    .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 12))
-                }
-                .buttonStyle(.plain)
-            } else {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                    Text("Photo limit reached (\(maxPhotos)/\(maxPhotos))")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                .padding(12)
-                .background(Color.green.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
-            }
-        }
-        .confirmationDialog("Add Photo", isPresented: $showImageSourcePicker, titleVisibility: .visible) {
-            Button("Take Photo") { showCamera = true }
-            Button("Choose from Library") { showLibrary = true }
-            Button("Cancel", role: .cancel) {}
-        }
-        .sheet(isPresented: $showCamera) {
-            CameraPickerView { image in
-                if photoDatas.count < maxPhotos {
-                    photoDatas.append(image.jpegData(compressionQuality: 0.8) ?? Data())
+                    .padding(.top, 4) // Space for the xmark
                 }
             }
         }
-        .sheet(isPresented: $showLibrary) {
-            PhotoLibraryPickerView { data in
-                if photoDatas.count < maxPhotos { photoDatas.append(data) }
-            }
-        }
+        .sheet(isPresented: $showCamera) { CameraPickerView { img in photoDatas.append(img.jpegData(compressionQuality: 0.8)!) } }
+        .sheet(isPresented: $showLibrary) { PhotoLibraryPickerView { data in photoDatas.append(data) } }
     }
 
-    // MARK: - Result views
-
-    @ViewBuilder
-    private func resultView(_ result: CreateIssueResult) -> some View {
-        switch result.value {
-        case .created(let issue):
-            VStack(spacing: 24) {
-                Spacer()
-                ZStack {
-                    Circle().fill(Color.green.opacity(0.12)).frame(width: 120, height: 120)
-                    Image(systemName: "checkmark.circle.fill").font(.system(size: 64)).foregroundStyle(.green)
-                }
-                VStack(spacing: 8) {
-                    Text("Issue Reported!").font(.title.bold())
-                    Text("Issue #\(issue.id) has been submitted and will be reviewed shortly.")
-                        .font(.subheadline).foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center).padding(.horizontal, 30)
-                }
-                Button("Done") { dismiss() }.buttonStyle(.borderedProminent).tint(.teal)
-                Spacer()
-            }
-
-        case .duplicate(let dup):
-            VStack(spacing: 24) {
-                Spacer()
-                ZStack {
-                    Circle().fill(Color.orange.opacity(0.12)).frame(width: 120, height: 120)
-                    Image(systemName: "exclamationmark.circle.fill").font(.system(size: 64)).foregroundStyle(.orange)
-                }
-                VStack(spacing: 8) {
-                    Text("Already Reported").font(.title.bold())
-                    Text("This issue (#\(dup.existingId)) has already been reported \(dup.reportCount) time(s). " +
-                         (dup.alreadyCounted ? "Your report was already counted." : "Your report has been added."))
-                        .font(.subheadline).foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center).padding(.horizontal, 30)
-                }
-                Button("Done") { dismiss() }.buttonStyle(.borderedProminent).tint(.orange)
-                Spacer()
-            }
-        }
-    }
-
-    // MARK: - Bottom bar
+    // MARK: - Helpers
 
     private var bottomBar: some View {
         HStack(spacing: 12) {
             if step > 0 {
-                Button {
-                    withAnimation { step -= 1 }
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .frame(width: 50, height: 50)
-                        .background(Color(.systemGray5), in: Circle())
+                Button { withAnimation { step -= 1 } } label: {
+                    Image(systemName: "chevron.left").frame(width: 44, height: 44).background(Color(.systemGray5), in: Circle())
                 }
                 .foregroundStyle(.primary)
             }
 
             Button {
-                if step < 3 {
-                    withAnimation { step += 1 }
-                } else {
-                    submitIssue()
-                }
+                if step < 3 { withAnimation { step += 1 } } else { submitIssue() }
             } label: {
-                Group {
-                    if isSubmitting {
-                        VStack(spacing: 2) {
-                            ProgressView().tint(.white)
-                            if let progress = uploadProgress {
-                                Text(progress)
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.white.opacity(0.8))
-                            }
-                        }
-                    } else {
-                        Text(step == 3 ? "Submit Report" : "Next")
-                            .font(.system(size: 16, weight: .semibold))
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 50)
-                .background(isStepValid ? Color.teal : Color(.systemGray4), in: RoundedRectangle(cornerRadius: 14))
-                .foregroundStyle(.white)
+                Text(isSubmitting ? "Submitting..." : (step == 3 ? "Submit" : "Next"))
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(isStepValid ? Color.teal : Color(.systemGray4), in: RoundedRectangle(cornerRadius: 12))
+                    .foregroundStyle(.white)
             }
             .disabled(!isStepValid || isSubmitting)
         }
-        .padding(.horizontal, 20)
-        .padding(.bottom, 20)
-        .background(.regularMaterial)
+        .padding(20)
+        .background(.ultraThinMaterial)
     }
 
-    // MARK: - Helpers
-
     private func stepHeader(title: String, subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.title2.bold())
-            Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).font(.headline)
+            Text(subtitle).font(.caption).foregroundStyle(.secondary)
         }
     }
 
-    private func submitIssue() {
-        isSubmitting = true
-        submitError = nil
-        uploadProgress = nil
+    private func fetchGeocode(lat: Double, lon: Double) {
+        isGeolocating = true
         Task {
-            do {
-                var imageURLs: [String] = []
-
-                // Upload all selected photos before submitting
-                if !photoDatas.isEmpty {
-                    for (i, data) in photoDatas.enumerated() {
-                        uploadProgress = "Uploading photo \(i + 1) of \(photoDatas.count)…"
-                        let url = try await APIService.shared.uploadPhoto(data)
-                        imageURLs.append(url)
-                    }
-                    uploadProgress = "Submitting report…"
+            if let result = try? await APIService.shared.geocode(lat: lat, lon: lon) {
+                await MainActor.run {
+                    streetAddress = result.streetName ?? result.streetAddress ?? streetAddress
+                    municipality = result.municipality
+                    isGeolocating = false
                 }
+            } else { await MainActor.run { isGeolocating = false } }
+        }
+    }
 
-                submitResult = try await store.createIssue(
-                    type: selectedType,
-                    description: description.isEmpty ? nil : description,
-                    latitude: latitude,
-                    longitude: longitude,
-                    municipality: municipality,
-                    streetAddress: streetAddress.isEmpty ? nil : streetAddress,
-                    imageURLs: imageURLs
-                )
-            } catch {
-                submitError = error.localizedDescription
-            }
-            isSubmitting = false
-            uploadProgress = nil
+    private func applySelectedLocation(lat: Double, lon: Double, shouldFetchGeocode: Bool) {
+        latitude = lat
+        longitude = lon
+        if shouldFetchGeocode {
+            fetchGeocode(lat: lat, lon: lon)
         }
     }
 
@@ -452,57 +318,73 @@ struct ReportIssueView: View {
         Task {
             do {
                 let loc = try await LocationHelper.shared.requestLocation()
-                latitude  = loc.coordinate.latitude
-                longitude = loc.coordinate.longitude
-                // Reverse-geocode only for street name / municipality text.
-                // The GPS coordinates are the source of truth — not overridden.
-                let result = try await APIService.shared.geocode(
-                    lat: loc.coordinate.latitude,
-                    lon: loc.coordinate.longitude
-                )
-                if let name = result.streetName  { streetAddress = name }
-                else if let addr = result.streetAddress { streetAddress = addr }
-                municipality = result.municipality
-            } catch {
-                // Silently ignore — user can type the address
+                await MainActor.run {
+                    applySelectedLocation(
+                        lat: loc.coordinate.latitude,
+                        lon: loc.coordinate.longitude,
+                        shouldFetchGeocode: false
+                    )
+                }
+                fetchGeocode(lat: loc.coordinate.latitude, lon: loc.coordinate.longitude)
+            } catch { await MainActor.run { isGeolocating = false } }
+        }
+    }
+
+    private func submitIssue() {
+        isSubmitting = true
+        Task {
+            do {
+                var urls: [String] = []
+                for data in photoDatas { urls.append(try await APIService.shared.uploadPhoto(data)) }
+                submitResult = try await store.createIssue(type: selectedType, description: description, latitude: latitude, longitude: longitude, municipality: municipality, streetAddress: streetAddress, imageURLs: urls)
+            } catch { submitError = error.localizedDescription }
+            isSubmitting = false
+        }
+    }
+
+    @ViewBuilder
+    private func resultView(_ result: CreateIssueResult) -> some View {
+        switch result.value {
+        case .created(let issue):
+            VStack(spacing: 16) {
+                Spacer()
+                Image(systemName: "checkmark.circle.fill").font(.system(size: 50)).foregroundStyle(.green)
+                Text("Submitted!").font(.headline)
+                Text("Issue #\(issue.id) created.").font(.subheadline).foregroundStyle(.secondary)
+                Button("Done") { dismiss() }.buttonStyle(.bordered).tint(.teal)
+                Spacer()
             }
-            isGeolocating = false
+        case .duplicate(let dup):
+            VStack(spacing: 16) {
+                Spacer()
+                Image(systemName: "exclamationmark.circle.fill").font(.system(size: 50)).foregroundStyle(.orange)
+                Text("Already Reported").font(.headline)
+                Text("Issue #\(dup.existingId) already exists.").font(.subheadline).foregroundStyle(.secondary)
+                Button("Done") { dismiss() }.buttonStyle(.bordered).tint(.orange)
+                Spacer()
+            }
         }
     }
 }
-
-// MARK: - TypeCard & IssueTypeTag
 
 struct TypeCard: View {
     let type: IssueType
     let isSelected: Bool
     let action: () -> Void
-
-    private var cardColor: Color { type.color }
-
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 10) {
+            VStack(spacing: 6) {
                 ZStack {
-                    Circle()
-                        .fill(isSelected ? cardColor : cardColor.opacity(0.12))
-                        .frame(width: 60, height: 60)
-                    IssueTypeGlyph(type: type, size: 26, color: isSelected ? .white : cardColor)
+                    Circle().fill(isSelected ? type.color : type.color.opacity(0.1)).frame(width: 44, height: 44)
+                    IssueTypeGlyph(type: type, size: 20, color: isSelected ? .white : type.color)
                 }
-                Text(type.displayName)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.center)
+                Text(type.displayName).font(.system(size: 10, weight: .medium)).multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(isSelected ? cardColor.opacity(0.1) : Color(.systemGray6), in: RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(isSelected ? cardColor : .clear, lineWidth: 2))
+            .padding(.vertical, 10)
+            .background(isSelected ? type.color.opacity(0.05) : Color(.systemGray6), in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(isSelected ? type.color : .clear, lineWidth: 1.5))
         }
         .buttonStyle(.plain)
     }
-}
-
-#Preview {
-    ReportIssueView().environmentObject(IssueStore())
 }

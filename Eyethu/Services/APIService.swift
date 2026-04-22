@@ -116,6 +116,14 @@ actor APIService {
         return try await send(req)
     }
 
+    func voteOnIssue(id: Int, vote: String) async throws -> Issue {
+        var req = URLRequest(url: baseURL.appending(path: "/api/issues/\(id)"))
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["vote": vote])
+        return try await send(req)
+    }
+
     // MARK: - Photo upload
 
     struct UploadURLResponse: Codable {
