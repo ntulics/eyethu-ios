@@ -364,11 +364,11 @@ struct HomeView: View {
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(Color(.secondarySystemBackground).opacity(0.9))
+                    .fill(.ultraThinMaterial)
             )
             .overlay(
                 Capsule()
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
             )
         }
         .padding(.horizontal, 20)
