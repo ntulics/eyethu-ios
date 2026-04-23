@@ -126,7 +126,7 @@ struct IssueMapView: View {
                         .buttonStyle(.plain)
                     }
                     .padding(.trailing, 16)
-                    .padding(.bottom, reportType != nil ? 84 : (selectedIssue != nil ? 144 : 28))
+                    .padding(.bottom, reportType != nil ? 84 : (selectedIssue != nil ? 210 : 28))
                     .animation(.spring(response: 0.3), value: reportType != nil)
                     .animation(.spring(response: 0.3), value: selectedIssue != nil)
                 }
@@ -386,12 +386,14 @@ struct IssueMapPin: View {
 }
 
 struct IssueMapCallout: View {
+    @EnvironmentObject var store: IssueStore
     let issue: Issue
     let onDismiss: () -> Void
+    @State private var isVoting = false
 
     var body: some View {
-        NavigationLink(destination: IssueDetailView(issue: issue)) {
-            VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
+            NavigationLink(destination: IssueDetailView(issue: issue)) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 8) {
@@ -412,16 +414,53 @@ struct IssueMapCallout: View {
                     }
                     Spacer()
                     Button(action: onDismiss) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title3)
+                        Text("Close")
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(.secondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(Color(.systemGray5), in: Capsule())
                     }
                     .buttonStyle(.plain)
                 }
                 .padding(14)
+            }
+            .buttonStyle(.plain)
 
-                Divider()
+            Divider()
+            
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Is this issue still there?")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.primary)
+                
+                HStack(spacing: 12) {
+                    Button { voteOnIssue("up") } label: {
+                        Text("Yes")
+                            .font(.system(size: 14, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 38)
+                            .background(Color.green.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+                            .foregroundStyle(.green)
+                    }
+                    .disabled(isVoting)
+                    
+                    Button { voteOnIssue("down") } label: {
+                        Text("No")
+                            .font(.system(size: 14, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 38)
+                            .background(Color.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+                            .foregroundStyle(.red)
+                    }
+                    .disabled(isVoting)
+                }
+            }
+            .padding(14)
 
+            Divider()
+
+            NavigationLink(destination: IssueDetailView(issue: issue)) {
                 HStack {
                     Image(systemName: "info.circle")
                     Text("View Details")
@@ -433,10 +472,22 @@ struct IssueMapCallout: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
             }
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-            .shadow(color: .black.opacity(0.12), radius: 16, y: 4)
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.12), radius: 16, y: 4)
+    }
+
+    private func voteOnIssue(_ type: String) {
+        isVoting = true
+        Task {
+            do {
+                try await store.vote(issue: issue, type: type)
+            } catch {
+                // Silently fail or log
+            }
+            isVoting = false
+        }
     }
 }
 

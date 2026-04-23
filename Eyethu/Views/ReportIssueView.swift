@@ -264,22 +264,27 @@ struct ReportIssueView: View {
         HStack(spacing: 12) {
             if step > 0 {
                 Button { withAnimation { step -= 1 } } label: {
-                    Image(systemName: "chevron.left").frame(width: 44, height: 44).background(Color(.systemGray5), in: Circle())
+                    Text("Back")
+                        .font(.system(size: 15, weight: .medium))
+                        .frame(width: 84, height: 44)
+                        .background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 12))
+                        .foregroundStyle(.primary)
                 }
-                .foregroundStyle(.primary)
+                .buttonStyle(.plain)
             }
 
             Button {
                 if step < 3 { withAnimation { step += 1 } } else { submitIssue() }
             } label: {
                 Text(isSubmitting ? "Submitting..." : (step == 3 ? "Submit" : "Next"))
-                    .font(.headline)
+                    .font(.system(size: 15, weight: .semibold))
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
                     .background(isStepValid ? Color.teal : Color(.systemGray4), in: RoundedRectangle(cornerRadius: 12))
                     .foregroundStyle(.white)
             }
             .disabled(!isStepValid || isSubmitting)
+            .buttonStyle(.plain)
         }
         .padding(20)
         .background(.ultraThinMaterial)

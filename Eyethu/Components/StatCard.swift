@@ -71,21 +71,74 @@ struct StatCard<Content: View>: View {
 
 struct ActivityBars: View {
     let days: [DailyCount]
-    let accentColor: Color
+
+    private var maxCount: Int {
+        max(
+            days.flatMap { [$0.openCount, $0.inProgressCount, $0.resolvedCount] }.max() ?? 0,
+            1
+        )
+    }
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 4) {
+        HStack(alignment: .bottom, spacing: 6) {
             ForEach(days) { day in
-                VStack(spacing: 3) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(day.hasReport ? accentColor : accentColor.opacity(0.2))
-                        .frame(width: 14, height: day.hasReport ? CGFloat(14 + day.count * 4) : 14)
-                        .animation(.easeInOut, value: day.count)
+                VStack(spacing: 4) {
+                    HStack(alignment: .bottom, spacing: 2) {
+                        ActivityBarSegment(count: day.openCount, maxCount: maxCount, color: .orange)
+                        ActivityBarSegment(count: day.inProgressCount, maxCount: maxCount, color: .teal)
+                        ActivityBarSegment(count: day.resolvedCount, maxCount: maxCount, color: .green)
+                    }
+                    .frame(height: 46)
+
                     Text(day.weekday)
                         .font(.system(size: 9, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
             }
+        }
+    }
+}
+
+struct ActivityLegend: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            ActivityLegendItem(label: "Open", color: .orange)
+            ActivityLegendItem(label: "In Progress", color: .teal)
+            ActivityLegendItem(label: "Resolved", color: .green)
+        }
+    }
+}
+
+private struct ActivityBarSegment: View {
+    let count: Int
+    let maxCount: Int
+    let color: Color
+
+    private var height: CGFloat {
+        guard count > 0 else { return 8 }
+        return 8 + (CGFloat(count) / CGFloat(maxCount)) * 38
+    }
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 2.5)
+            .fill(count > 0 ? color : color.opacity(0.18))
+            .frame(width: 5, height: height)
+            .animation(.easeInOut(duration: 0.2), value: count)
+    }
+}
+
+private struct ActivityLegendItem: View {
+    let label: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(color)
+                .frame(width: 5, height: 5)
+            Text(label)
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(.secondary)
         }
     }
 }

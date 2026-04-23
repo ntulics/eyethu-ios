@@ -141,19 +141,26 @@ struct HomeView: View {
                     StatCard(title: "Active Reports", subtitle: currentAreaName, onTap: {
                         showActiveIssues = true
                     }) {
-                        HStack(alignment: .bottom, spacing: 16) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("\(store.activeIssues.count)")
-                                    .font(.system(size: 40, weight: .bold, design: .rounded))
-                                    .foregroundStyle(.teal)
-                                if let date = store.lastReportDate {
-                                    Text("Last: \(date.relativeFormatted)")
-                                        .font(.caption2)
-                                        .foregroundStyle(.teal.opacity(0.8))
-                                }
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Spacer()
+                                ActivityLegend()
                             }
-                            Spacer()
-                            ActivityBars(days: store.weeklyActivity, accentColor: .teal)
+
+                            HStack(alignment: .bottom, spacing: 16) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("\(store.activeIssues.count)")
+                                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                                        .foregroundStyle(.teal)
+                                    if let date = store.lastReportDate {
+                                        Text("Last: \(date.relativeFormatted)")
+                                            .font(.caption2)
+                                            .foregroundStyle(.teal.opacity(0.8))
+                                    }
+                                }
+                                Spacer()
+                                ActivityBars(days: store.weeklyActivity)
+                            }
                         }
                     }
                     .padding(.horizontal, 20)
@@ -241,7 +248,11 @@ struct HomeView: View {
                             Divider().padding(.horizontal, 16)
 
                             ForEach(store.typeLeaderboard) { stat in
-                                CategoryLeaderboardRow(stat: stat)
+                                NavigationLink(destination: IssueListView(prefillType: stat.type)) {
+                                    CategoryLeaderboardRow(stat: stat)
+                                }
+                                .buttonStyle(.plain)
+                                
                                 if stat.id != store.typeLeaderboard.last?.id {
                                     Divider().padding(.horizontal, 16)
                                 }

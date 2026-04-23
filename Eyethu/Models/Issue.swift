@@ -150,8 +150,13 @@ struct CreateIssueResult {
 struct DailyCount: Identifiable {
     let id = UUID()
     let weekday: String
-    let count: Int
-    let hasReport: Bool
+    let openCount: Int
+    let inProgressCount: Int
+    let resolvedCount: Int
+
+    var totalCount: Int {
+        openCount + inProgressCount + resolvedCount
+    }
 }
 
 extension Color {

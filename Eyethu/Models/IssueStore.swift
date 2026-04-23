@@ -29,14 +29,25 @@ class IssueStore: ObservableObject {
     }
 
     var weeklyActivity: [DailyCount] {
-        let labels = ["M", "T", "W", "T", "F", "S", "S"]
         let calendar = Calendar.current
         let today = Date()
-        return labels.enumerated().map { index, label in
-            let offset = index - 6
-            let date = calendar.date(byAdding: .day, value: offset, to: today)!
-            let count = issues.filter { calendar.isDate($0.createdAt, inSameDayAs: date) }.count
-            return DailyCount(weekday: label, count: count, hasReport: offset <= 0 && count > 0)
+        let weekdaySymbols = DateFormatter().veryShortStandaloneWeekdaySymbols ?? ["S", "M", "T", "W", "T", "F", "S"]
+        let todayStart = calendar.startOfDay(for: today)
+        let weekday = calendar.component(.weekday, from: todayStart)
+        let mondayOffset = (weekday + 5) % 7
+        let mondayStart = calendar.date(byAdding: .day, value: -mondayOffset, to: todayStart) ?? todayStart
+        let orderedSymbols = [1, 2, 3, 4, 5, 6, 0].map { weekdaySymbols[$0] }
+
+        return (0..<7).map { index in
+            let date = calendar.date(byAdding: .day, value: index, to: mondayStart) ?? mondayStart
+            let dayIssues = issues.filter { calendar.isDate($0.createdAt, inSameDayAs: date) }
+
+            return DailyCount(
+                weekday: orderedSymbols[index],
+                openCount: dayIssues.filter { $0.status == .open }.count,
+                inProgressCount: dayIssues.filter { $0.status == .inProgress }.count,
+                resolvedCount: dayIssues.filter { $0.status == .resolved }.count
+            )
         }
     }
 

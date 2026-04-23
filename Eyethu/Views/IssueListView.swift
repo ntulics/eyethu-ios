@@ -15,9 +15,11 @@ struct IssueListView: View {
     }
 
     private let entryFilter: EntryFilter
+    private let prefillType: IssueType?
 
-    init(entryFilter: EntryFilter = .all) {
+    init(entryFilter: EntryFilter = .all, prefillType: IssueType? = nil) {
         self.entryFilter = entryFilter
+        self.prefillType = prefillType
     }
 
     var filtered: [Issue] {
@@ -44,6 +46,33 @@ struct IssueListView: View {
             .pickerStyle(.segmented)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
+
+            // Category filter chips
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    FilterChip(label: "All Categories", isSelected: selectedType == nil) {
+                        selectedType = nil
+                    }
+                    ForEach(IssueType.allCases, id: \.self) { type in
+                        Button {
+                            selectedType = selectedType == type ? nil : type
+                        } label: {
+                            HStack(spacing: 6) {
+                                IssueTypeGlyph(type: type, size: 12, color: selectedType == type ? .white : type.color)
+                                Text(type.displayName)
+                                    .font(.system(size: 13, weight: .medium))
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(selectedType == type ? Color.teal : Color(.systemGray5), in: Capsule())
+                            .foregroundStyle(selectedType == type ? .white : .primary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            .padding(.bottom, 6)
 
             // Status filter chips
             ScrollView(.horizontal, showsIndicators: false) {
@@ -84,6 +113,9 @@ struct IssueListView: View {
             FilterSheet(selectedType: $selectedType)
         }
         .onAppear {
+            if let type = prefillType {
+                selectedType = type
+            }
             if entryFilter == .active {
                 viewMode = .list
             }
