@@ -85,7 +85,7 @@ struct HomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Color.clear
-                        .frame(height: 72)
+                        .frame(height: 88)
 
                     // Error banner
                     if let err = store.error {
@@ -303,8 +303,12 @@ struct HomeView: View {
             }
 
             topHeader
-                .padding(.top, 8)
-                .frame(maxWidth: .infinity)
+                .padding(.top, 10)
+                .padding(.bottom, 14)
+                .background(.ultraThinMaterial)
+                .overlay(alignment: .bottom) {
+                    Divider().opacity(0.4)
+                }
                 .zIndex(1)
         }
     }
@@ -364,17 +368,15 @@ struct HomeView: View {
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(.ultraThinMaterial)
+                    .fill(Color(.secondarySystemBackground).opacity(0.4))
             )
             .overlay(
                 Capsule()
-                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
             )
-        }
-        .padding(.horizontal, 20)
-        .background(Color.clear)
-    }
-
+            }
+            .padding(.horizontal, 20)
+            }
     private func loadCurrentArea() async {
         do {
             let loc = try await LocationHelper.shared.requestLocation()
