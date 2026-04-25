@@ -3,12 +3,12 @@ import CoreLocation
 actor LocationHelper: NSObject, CLLocationManagerDelegate {
     static let shared = LocationHelper()
 
-    private let manager = CLLocationManager()
+    nonisolated(unsafe) private let manager = CLLocationManager()
     private var continuation: CheckedContinuation<CLLocation, Error>?
 
     override init() {
         super.init()
-        Task { @MainActor in manager.delegate = self }
+        manager.delegate = self
     }
 
     func requestLocation() async throws -> CLLocation {

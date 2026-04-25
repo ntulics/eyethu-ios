@@ -35,8 +35,13 @@ class IssueStore: ObservableObject {
         return labels.enumerated().map { index, label in
             let offset = index - 6
             let date = calendar.date(byAdding: .day, value: offset, to: today)!
-            let count = issues.filter { calendar.isDate($0.createdAt, inSameDayAs: date) }.count
-            return DailyCount(weekday: label, count: count, hasReport: offset <= 0 && count > 0)
+            let dayIssues = issues.filter { calendar.isDate($0.createdAt, inSameDayAs: date) }
+            return DailyCount(
+                weekday:    label,
+                open:       dayIssues.filter { $0.status == .open       }.count,
+                inProgress: dayIssues.filter { $0.status == .inProgress }.count,
+                resolved:   dayIssues.filter { $0.status == .resolved   }.count
+            )
         }
     }
 
