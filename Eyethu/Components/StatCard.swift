@@ -74,63 +74,62 @@ struct StatCard<Content: View>: View {
 }
 
 private let brandOrange = Color(hex: "#FF6B35")
+private let trackHeight: CGFloat = 44
 
 struct ActivityBars: View {
     let days: [DailyCount]
 
-    private let minHeight: CGFloat = 4
-    private let unitHeight: CGFloat = 6
+    private var maxCount: Int {
+        days.flatMap { [$0.open, $0.inProgress, $0.resolved] }.max().map { max($0, 1) } ?? 1
+    }
 
-    private func barHeight(for count: Int) -> CGFloat {
+    private func h(_ count: Int) -> CGFloat {
         guard count > 0 else { return 0 }
-        return max(CGFloat(count) * unitHeight, minHeight)
+        return max(3, CGFloat(count) / CGFloat(maxCount) * trackHeight)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .bottom, spacing: 0) {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .bottom, spacing: 5) {
                 ForEach(days) { day in
-                    let total = day.open + day.inProgress + day.resolved
                     VStack(spacing: 3) {
-                        if total == 0 {
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(Color.secondary.opacity(0.15))
-                                .frame(height: minHeight)
-                        } else {
-                            VStack(spacing: 1) {
-                                if day.resolved > 0 {
-                                    RoundedRectangle(cornerRadius: 2)
-                                        .fill(Color.green)
-                                        .frame(height: barHeight(for: day.resolved))
-                                }
-                                if day.inProgress > 0 {
-                                    RoundedRectangle(cornerRadius: 2)
-                                        .fill(Color.teal)
-                                        .frame(height: barHeight(for: day.inProgress))
-                                }
-                                if day.open > 0 {
-                                    RoundedRectangle(cornerRadius: 2)
-                                        .fill(brandOrange)
-                                        .frame(height: barHeight(for: day.open))
-                                }
-                            }
-                            .animation(.easeInOut, value: total)
+                        HStack(alignment: .bottom, spacing: 1) {
+                            TrackBar(height: h(day.open),       color: brandOrange)
+                            TrackBar(height: h(day.inProgress), color: .teal)
+                            TrackBar(height: h(day.resolved),   color: .green)
                         }
                         Text(day.weekday)
                             .font(.system(size: 9, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
-                    .frame(maxWidth: .infinity)
                 }
             }
 
-            HStack(spacing: 16) {
+            HStack(spacing: 10) {
                 LegendDot(color: brandOrange, label: "Open")
                 LegendDot(color: .teal,       label: "In Progress")
                 LegendDot(color: .green,      label: "Resolved")
             }
         }
-        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct TrackBar: View {
+    let height: CGFloat
+    let color: Color
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color.secondary.opacity(0.12))
+                .frame(width: 4, height: trackHeight)
+            if height > 0 {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(color)
+                    .frame(width: 4, height: height)
+                    .animation(.easeInOut, value: height)
+            }
+        }
     }
 }
 
