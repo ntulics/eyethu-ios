@@ -90,7 +90,7 @@ struct ActivityBars: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .bottom, spacing: 5) {
+            HStack(alignment: .bottom, spacing: 0) {
                 ForEach(days) { day in
                     VStack(spacing: 3) {
                         HStack(alignment: .bottom, spacing: 1) {
@@ -102,8 +102,10 @@ struct ActivityBars: View {
                             .font(.system(size: 9, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
+                    .frame(maxWidth: .infinity)
                 }
             }
+            .frame(maxWidth: .infinity)
 
             HStack(spacing: 10) {
                 LegendDot(color: brandOrange, label: "Open")
@@ -111,6 +113,7 @@ struct ActivityBars: View {
                 LegendDot(color: .green,      label: "Resolved")
             }
         }
+        .frame(maxWidth: .infinity)
     }
 }
 
