@@ -27,17 +27,20 @@ struct IssueTypeGlyph: View {
 struct StatCard<Content: View>: View {
     let title: String
     let subtitle: String
+    let badge: String?
     let onTap: (() -> Void)?
     @ViewBuilder let content: () -> Content
 
     init(
         title: String,
         subtitle: String,
+        badge: String? = nil,
         onTap: (() -> Void)? = nil,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.title = title
         self.subtitle = subtitle
+        self.badge = badge
         self.onTap = onTap
         self.content = content
     }
@@ -57,6 +60,11 @@ struct StatCard<Content: View>: View {
                             .minimumScaleFactor(0.8)
                     }
                     Spacer()
+                    if let badge = badge {
+                        Text(badge)
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .foregroundStyle(.teal)
+                    }
                 }
                 content()
             }
@@ -74,7 +82,6 @@ private let barWidth: CGFloat = 6
 
 struct ActivityBars: View {
     let days: [DailyCount]
-    var count: Int? = nil
     var lastDate: Date? = nil
 
     private var maxCount: Int {
@@ -88,18 +95,10 @@ struct ActivityBars: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let count = count {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("\(count)")
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
-                        .foregroundStyle(.teal)
-                    Spacer()
-                    if let date = lastDate {
-                        Text("Last: \(date.relativeFormatted)")
-                            .font(.caption2)
-                            .foregroundStyle(.teal.opacity(0.8))
-                    }
-                }
+            if let date = lastDate {
+                Text("Last: \(date.relativeFormatted)")
+                    .font(.caption2)
+                    .foregroundStyle(.teal.opacity(0.8))
             }
             HStack(alignment: .bottom, spacing: 0) {
                 ForEach(days) { day in

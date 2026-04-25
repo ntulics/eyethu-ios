@@ -138,14 +138,13 @@ struct HomeView: View {
                     .padding(.horizontal, 20)
 
                     // Active Reports — full-width card with last-report time
-                    StatCard(title: "Active Reports", subtitle: currentAreaName, onTap: {
-                        showActiveIssues = true
-                    }) {
-                        ActivityBars(
-                            days: store.weeklyActivity,
-                            count: store.activeIssues.count,
-                            lastDate: store.lastReportDate
-                        )
+                    StatCard(
+                        title: "Active Reports",
+                        subtitle: currentAreaName,
+                        badge: "\(store.activeIssues.count)",
+                        onTap: { showActiveIssues = true }
+                    ) {
+                        ActivityBars(days: store.weeklyActivity, lastDate: store.lastReportDate)
                     }
                     .padding(.horizontal, 20)
 
