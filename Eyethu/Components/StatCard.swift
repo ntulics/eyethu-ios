@@ -14,9 +14,11 @@ struct IssueTypeGlyph: View {
     }
 
     var body: some View {
-        Image(systemName: type.icon)
-            .font(.system(size: size, weight: weight))
-            .foregroundStyle(color)
+        Image(type.imageName)
+            .resizable()
+            .renderingMode(.original)
+            .scaledToFit()
+            .frame(width: size, height: size)
     }
 }
 

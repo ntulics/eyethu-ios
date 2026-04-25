@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1A7F1D252EE44E36B5E31331 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 41B4F780D95049A5A71162AE /* Assets.xcassets */; };
 		0A982CD5BEDD40228B99C2F0 /* EyethuApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74A0FCE3673F45BFBB8DF343 /* EyethuApp.swift */; };
 		0C83E69EB59A4998A4A3E0FE /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7527F67E56EB4D12B93885F5 /* LoginView.swift */; };
 		2639703024FA43F78D1350D9 /* IssueListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6D6121EACA549A9924552DB /* IssueListView.swift */; };
@@ -32,6 +33,7 @@
 		24FE78C426B24171BEF67142 /* LocationHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationHelper.swift; sourceTree = "<group>"; };
 		2B5DAB5D513E4B90B17F59D4 /* RingProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RingProgressView.swift; sourceTree = "<group>"; };
 		2EF20C40608A45AFA3774D2D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		41B4F780D95049A5A71162AE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		57B3FD0D248F4ABBA3E14DD9 /* StatCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatCard.swift; sourceTree = "<group>"; };
 		5E05DD641BAA4CBE8C782F97 /* Issue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Issue.swift; sourceTree = "<group>"; };
 		6A3C1E04021C4E978812F058 /* Eyethu.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Eyethu.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -111,6 +113,7 @@
 				70CE1C7325AB444FA1F311A8 /* Views */,
 				C61542B53D024734B9918221 /* Components */,
 				2C05BEA6ECF14722A6688FF2 /* Services */,
+				41B4F780D95049A5A71162AE /* Assets.xcassets */,
 				2EF20C40608A45AFA3774D2D /* Info.plist */,
 			);
 			path = Eyethu;
@@ -193,6 +196,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1A7F1D252EE44E36B5E31331 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -267,6 +271,7 @@
 		5359CAC7E6314D92B6131233 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PR7DR54HF3;
@@ -285,6 +290,7 @@
 		C59D43DD59874739927D114D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PR7DR54HF3;

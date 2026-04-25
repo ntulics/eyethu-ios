@@ -32,6 +32,17 @@ enum IssueType: String, CaseIterable, Codable {
         }
     }
 
+    var imageName: String {
+        switch self {
+        case .pothole:        return "icon-pothole"
+        case .waterLeak:      return "icon-water-leak"
+        case .powerOutage:    return "icon-power-outage"
+        case .streetlight:    return "icon-streetlight"
+        case .illegalDumping: return "icon-illegal-dumping"
+        case .trafficLights:  return "icon-traffic-lights"
+        }
+    }
+
     // Exact hex colours from the web app (lib/types.ts ISSUE_COLORS)
     var color: Color {
         switch self {
@@ -150,8 +161,12 @@ struct CreateIssueResult {
 struct DailyCount: Identifiable {
     let id = UUID()
     let weekday: String
-    let count: Int
-    let hasReport: Bool
+    let open: Int
+    let inProgress: Int
+    let resolved: Int
+
+    var count: Int { open + inProgress + resolved }
+    var hasReport: Bool { count > 0 }
 }
 
 extension Color {
