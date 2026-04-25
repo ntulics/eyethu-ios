@@ -14,11 +14,13 @@ struct IssueTypeGlyph: View {
     }
 
     var body: some View {
+        // SVGs include internal padding, so render at 1.5× to match SF Symbol visual weight
+        let visualSize = size * 1.5
         Image(type.imageName)
             .resizable()
             .renderingMode(.original)
             .scaledToFit()
-            .frame(width: size, height: size)
+            .frame(width: visualSize, height: visualSize)
     }
 }
 
