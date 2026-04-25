@@ -74,7 +74,7 @@ struct StatCard<Content: View>: View {
 }
 
 private let brandOrange = Color(hex: "#FF6B35")
-private let trackHeight: CGFloat = 44
+private let trackHeight: CGFloat = 36
 
 struct ActivityBars: View {
     let days: [DailyCount]
