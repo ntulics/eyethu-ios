@@ -153,7 +153,7 @@ struct HomeView: View {
                                 }
                             }
                             Spacer()
-                            ActivityBars(days: store.weeklyActivity, accentColor: .teal)
+                            ActivityBars(days: store.weeklyActivity)
                         }
                     }
                     .padding(.horizontal, 20)

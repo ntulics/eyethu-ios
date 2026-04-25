@@ -75,21 +75,77 @@ struct StatCard<Content: View>: View {
 
 struct ActivityBars: View {
     let days: [DailyCount]
-    let accentColor: Color
+
+    private let minHeight: CGFloat = 4
+    private let unitHeight: CGFloat = 6
+    private let maxTotalHeight: CGFloat = 48
+
+    private func barHeight(for count: Int, total: Int) -> CGFloat {
+        guard total > 0 else { return 0 }
+        let raw = CGFloat(count) * unitHeight
+        return max(raw, count > 0 ? minHeight : 0)
+    }
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 4) {
-            ForEach(days) { day in
-                VStack(spacing: 3) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(day.hasReport ? accentColor : accentColor.opacity(0.2))
-                        .frame(width: 14, height: day.hasReport ? CGFloat(14 + day.count * 4) : 14)
-                        .animation(.easeInOut, value: day.count)
-                    Text(day.weekday)
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .bottom, spacing: 4) {
+                ForEach(days) { day in
+                    let total = day.open + day.inProgress + day.resolved
+                    VStack(spacing: 3) {
+                        if total == 0 {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color.secondary.opacity(0.15))
+                                .frame(width: 14, height: minHeight)
+                        } else {
+                            VStack(spacing: 1) {
+                                // Resolved on top (green)
+                                if day.resolved > 0 {
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(Color.green)
+                                        .frame(width: 14, height: barHeight(for: day.resolved, total: total))
+                                }
+                                // In Progress middle (teal)
+                                if day.inProgress > 0 {
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(Color.teal)
+                                        .frame(width: 14, height: barHeight(for: day.inProgress, total: total))
+                                }
+                                // Open at bottom (orange)
+                                if day.open > 0 {
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(Color.orange)
+                                        .frame(width: 14, height: barHeight(for: day.open, total: total))
+                                }
+                            }
+                            .animation(.easeInOut, value: total)
+                        }
+                        Text(day.weekday)
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
+
+            // Legend
+            HStack(spacing: 10) {
+                LegendDot(color: .orange, label: "Open")
+                LegendDot(color: .teal,   label: "In Progress")
+                LegendDot(color: .green,  label: "Resolved")
+            }
+        }
+    }
+}
+
+private struct LegendDot: View {
+    let color: Color
+    let label: String
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 6, height: 6)
+            Text(label)
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(.secondary)
         }
     }
 }
