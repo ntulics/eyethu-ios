@@ -141,20 +141,11 @@ struct HomeView: View {
                     StatCard(title: "Active Reports", subtitle: currentAreaName, onTap: {
                         showActiveIssues = true
                     }) {
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack(alignment: .firstTextBaseline) {
-                                Text("\(store.activeIssues.count)")
-                                    .font(.system(size: 36, weight: .bold, design: .rounded))
-                                    .foregroundStyle(.teal)
-                                Spacer()
-                                if let date = store.lastReportDate {
-                                    Text("Last: \(date.relativeFormatted)")
-                                        .font(.caption2)
-                                        .foregroundStyle(.teal.opacity(0.8))
-                                }
-                            }
-                            ActivityBars(days: store.weeklyActivity)
-                        }
+                        ActivityBars(
+                            days: store.weeklyActivity,
+                            count: store.activeIssues.count,
+                            lastDate: store.lastReportDate
+                        )
                     }
                     .padding(.horizontal, 20)
 

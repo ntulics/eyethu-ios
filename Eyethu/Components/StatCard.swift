@@ -57,11 +57,6 @@ struct StatCard<Content: View>: View {
                             .minimumScaleFactor(0.8)
                     }
                     Spacer()
-                    if onTap != nil {
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
                 }
                 content()
             }
@@ -74,10 +69,13 @@ struct StatCard<Content: View>: View {
 }
 
 private let brandOrange = Color(hex: "#FF6B35")
-private let trackHeight: CGFloat = 36
+private let trackHeight: CGFloat = 50
+private let barWidth: CGFloat = 6
 
 struct ActivityBars: View {
     let days: [DailyCount]
+    var count: Int? = nil
+    var lastDate: Date? = nil
 
     private var maxCount: Int {
         days.flatMap { [$0.open, $0.inProgress, $0.resolved] }.max().map { max($0, 1) } ?? 1
@@ -89,7 +87,20 @@ struct ActivityBars: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
+            if let count = count {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("\(count)")
+                        .font(.system(size: 36, weight: .bold, design: .rounded))
+                        .foregroundStyle(.teal)
+                    Spacer()
+                    if let date = lastDate {
+                        Text("Last: \(date.relativeFormatted)")
+                            .font(.caption2)
+                            .foregroundStyle(.teal.opacity(0.8))
+                    }
+                }
+            }
             HStack(alignment: .bottom, spacing: 0) {
                 ForEach(days) { day in
                     VStack(spacing: 3) {
@@ -123,13 +134,13 @@ private struct TrackBar: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            RoundedRectangle(cornerRadius: 2)
+            RoundedRectangle(cornerRadius: 3)
                 .fill(Color.secondary.opacity(0.12))
-                .frame(width: 4, height: trackHeight)
+                .frame(width: barWidth, height: trackHeight)
             if height > 0 {
-                RoundedRectangle(cornerRadius: 2)
+                RoundedRectangle(cornerRadius: 3)
                     .fill(color)
-                    .frame(width: 4, height: height)
+                    .frame(width: barWidth, height: height)
                     .animation(.easeInOut, value: height)
             }
         }
