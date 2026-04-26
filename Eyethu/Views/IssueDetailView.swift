@@ -84,33 +84,42 @@ struct IssueDetailView: View {
                         
                         Spacer()
 
-                        // Voting Stack
-                        HStack(spacing: 8) {
-                            // Agree Button
-                            Button { voteOnIssue("up") } label: {
-                                VStack(spacing: 4) {
-                                    Image(systemName: "hand.thumbsup.fill")
-                                    Text("Agree").font(.system(size: 10, weight: .bold))
+                        // Still there? Yes / No
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Text("Still there?")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(.secondary)
+                            HStack(spacing: 6) {
+                                // Yes
+                                Button { voteOnIssue("up") } label: {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.system(size: 11))
+                                        Text("Yes").font(.system(size: 11, weight: .bold))
+                                    }
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 7)
+                                    .background(Color.green.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                                    .foregroundStyle(.green)
                                 }
-                                .padding(.vertical, 8)
-                                .frame(width: 54)
-                                .background(Color.green.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
-                                .foregroundStyle(.green)
-                            }
-                            .disabled(isVoting)
+                                .disabled(isVoting)
+                                .buttonStyle(.plain)
 
-                            // Disagree Button
-                            Button { voteOnIssue("down") } label: {
-                                VStack(spacing: 4) {
-                                    Image(systemName: "hand.thumbsdown.fill")
-                                    Text("Disagree").font(.system(size: 10, weight: .bold))
+                                // No
+                                Button { voteOnIssue("down") } label: {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .font(.system(size: 11))
+                                        Text("No").font(.system(size: 11, weight: .bold))
+                                    }
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 7)
+                                    .background(Color.red.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+                                    .foregroundStyle(.red)
                                 }
-                                .padding(.vertical, 8)
-                                .frame(width: 58)
-                                .background(Color.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
-                                .foregroundStyle(.red)
+                                .disabled(isVoting)
+                                .buttonStyle(.plain)
                             }
-                            .disabled(isVoting)
                         }
                     }
 
@@ -158,8 +167,8 @@ struct IssueDetailView: View {
                         if let ward = issue.ward {
                             MetaItem(icon: "mappin",  label: ward,                              title: "Ward")
                         }
-                        MetaItem(icon: "person.2",    label: "\(issue.reportCount ?? 1) agreed",  title: "Agree")
-                        MetaItem(icon: "person.2.slash", label: "\(issue.disagreeCount ?? 0) disagreed", title: "Disagree")
+                        MetaItem(icon: "checkmark.circle.fill", label: "\(issue.reportCount ?? 1) said yes",  title: "Still there")
+                        MetaItem(icon: "xmark.circle.fill",    label: "\(issue.disagreeCount ?? 0) said no",   title: "No longer")
                         
                         MetaItem(
                             icon:  (issue.source ?? "web") == "whatsapp" ? "message.fill" : (issue.source ?? "ios") == "ios" ? "iphone" : "globe",

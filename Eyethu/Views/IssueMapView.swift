@@ -388,40 +388,97 @@ struct IssueMapPin: View {
 struct IssueMapCallout: View {
     let issue: Issue
     let onDismiss: () -> Void
+    @EnvironmentObject var store: IssueStore
+    @State private var isVoting  = false
+    @State private var votedType: String? = nil   // "up" | "down"
 
     var body: some View {
-        NavigationLink(destination: IssueDetailView(issue: issue)) {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 8) {
-                            Text(issue.type.displayName)
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.primary)
-                            StatusBadge(status: issue.status)
-                        }
-                        Text(issue.displayStreet)
+        VStack(alignment: .leading, spacing: 0) {
+
+            // ── Header ────────────────────────────────────────────────────
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(issue.type.displayName)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.primary)
+                        StatusBadge(status: issue.status)
+                    }
+                    Text(issue.displayStreet)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let desc = issue.description {
+                        Text(desc)
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        if let desc = issue.description {
-                            Text(desc)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                        }
+                            .lineLimit(2)
                     }
-                    Spacer()
-                    Button(action: onDismiss) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title3)
+                }
+                Spacer()
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(14)
+
+            Divider()
+
+            // ── "Is this issue still there?" ──────────────────────────────
+            VStack(spacing: 8) {
+                Text("Is this issue still there?")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+
+                if let voted = votedType {
+                    HStack(spacing: 6) {
+                        Image(systemName: voted == "up" ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .foregroundStyle(voted == "up" ? .green : .red)
+                        Text(voted == "up" ? "Thanks — issue confirmed" : "Thanks for letting us know")
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
-                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity)
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                } else {
+                    HStack(spacing: 10) {
+                        Button { castVote("up") } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: "checkmark.circle.fill")
+                                Text("Yes").font(.system(size: 14, weight: .semibold))
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 38)
+                            .background(Color.green.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                            .foregroundStyle(.green)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isVoting)
+
+                        Button { castVote("down") } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: "xmark.circle.fill")
+                                Text("No").font(.system(size: 14, weight: .semibold))
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 38)
+                            .background(Color.red.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+                            .foregroundStyle(.red)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isVoting)
+                    }
                 }
-                .padding(14)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .animation(.spring(response: 0.3), value: votedType)
 
-                Divider()
+            Divider()
 
+            // ── View Details ──────────────────────────────────────────────
+            NavigationLink(destination: IssueDetailView(issue: issue)
+                .environmentObject(store)) {
                 HStack {
                     Image(systemName: "info.circle")
                     Text("View Details")
@@ -433,10 +490,22 @@ struct IssueMapCallout: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
             }
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-            .shadow(color: .black.opacity(0.12), radius: 16, y: 4)
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.12), radius: 16, y: 4)
+    }
+
+    private func castVote(_ type: String) {
+        guard !isVoting, votedType == nil else { return }
+        isVoting = true
+        Task {
+            do { try await store.vote(issue: issue, type: type) } catch {}
+            await MainActor.run {
+                withAnimation { votedType = type }
+                isVoting = false
+            }
+        }
     }
 }
 
