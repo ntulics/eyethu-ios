@@ -146,10 +146,6 @@ struct IssueMapView: View {
                     .animation(.spring(response: 0.35), value: reportType != nil)
                 }
             }
-            // Receive the measured callout height
-            .onPreferenceChange(CalloutHeightKey.self) { h in
-                if h > 0 { calloutHeight = h }
-            }
 
             // ── Report confirm bar ─────────────────────────────────────────────
             if let rt = reportType {
@@ -162,6 +158,10 @@ struct IssueMapView: View {
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+        }
+        // Preferences bubble UP to the ZStack — this is the correct attachment point
+        .onPreferenceChange(CalloutHeightKey.self) { h in
+            if h > 0 { calloutHeight = h }
         }
         .animation(.spring(response: 0.35), value: reportType)
         .onChange(of: selectedIssue == nil) { dismissed in
