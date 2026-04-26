@@ -133,8 +133,8 @@ struct HomeView: View {
                         }
                     }
                     .padding(16)
-                    .background(.background, in: RoundedRectangle(cornerRadius: 20))
-                    .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                    .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
                     .padding(.horizontal, 20)
 
                     // Active Reports — full-width card with last-report time
@@ -191,8 +191,8 @@ struct HomeView: View {
                             }
                             .padding(.bottom, 8)
                         }
-                        .background(.background, in: RoundedRectangle(cornerRadius: 20))
-                        .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                        .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
                         .padding(.horizontal, 20)
                     }
 
@@ -238,8 +238,8 @@ struct HomeView: View {
                             }
                             .padding(.bottom, 8)
                         }
-                        .background(.background, in: RoundedRectangle(cornerRadius: 20))
-                        .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                        .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
                         .padding(.horizontal, 20)
                     }
 
@@ -273,8 +273,8 @@ struct HomeView: View {
                         }
                         .padding(.bottom, 8)
                     }
-                    .background(.background, in: RoundedRectangle(cornerRadius: 20))
-                    .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                    .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
                     .padding(.horizontal, 20)
 
                     Spacer(minLength: 20)
@@ -551,8 +551,8 @@ struct NationalStatsCard: View {
             }
             .padding(.vertical, 12)
         }
-        .background(.background, in: RoundedRectangle(cornerRadius: 20))
-        .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
     }
 }
 
@@ -599,8 +599,8 @@ struct StatusCountCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
-        .background(.background, in: RoundedRectangle(cornerRadius: 14))
-        .shadow(color: .black.opacity(0.05), radius: 6, y: 2)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
     }
 }
 

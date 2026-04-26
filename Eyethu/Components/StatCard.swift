@@ -69,8 +69,8 @@ struct StatCard<Content: View>: View {
                 content()
             }
             .padding(14)
-            .background(.background, in: RoundedRectangle(cornerRadius: 16))
-            .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
         }
         .buttonStyle(.plain)
     }
