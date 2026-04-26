@@ -1,10 +1,17 @@
 import SwiftUI
 import MapKit
 
+// Measures a view's height and bubbles it up via SwiftUI preferences
+private struct CalloutHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
 struct IssueMapView: View {
     @EnvironmentObject var store: IssueStore
     @State private var selectedIssue: Issue? = nil
     @State private var isRecentering = false
+    @State private var calloutHeight: CGFloat = 0
     @State private var cameraPosition: MapCameraPosition = .region(
         MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: -26.2041, longitude: 28.0473),
@@ -79,6 +86,12 @@ struct IssueMapView: View {
             // ── Issue callout (normal mode) ────────────────────────────────────
             if let issue = selectedIssue, reportType == nil {
                 IssueMapCallout(issue: issue) { selectedIssue = nil }
+                    // Measure actual rendered height so the recenter button floats just above
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear.preference(key: CalloutHeightKey.self, value: geo.size.height)
+                        }
+                    )
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .padding(.horizontal, 16)
                     .padding(.bottom, 16)
@@ -107,7 +120,7 @@ struct IssueMapView: View {
                             .transition(.scale.combined(with: .opacity))
                         }
 
-                        // Recenter (always visible)
+                        // Recenter — floats just above the callout when visible
                         Button { recenterToUserLocation() } label: {
                             ZStack {
                                 Circle()
@@ -126,10 +139,16 @@ struct IssueMapView: View {
                         .buttonStyle(.plain)
                     }
                     .padding(.trailing, 16)
-                    .padding(.bottom, reportType != nil ? 84 : (selectedIssue != nil ? 144 : 28))
-                    .animation(.spring(response: 0.3), value: reportType != nil)
-                    .animation(.spring(response: 0.3), value: selectedIssue != nil)
+                    // calloutHeight + 16pt bottom pad + 12pt gap above card, or default 28pt
+                    .padding(.bottom, reportType != nil ? 84 : (selectedIssue != nil ? calloutHeight + 28 : 28))
+                    .animation(.spring(response: 0.35), value: calloutHeight)
+                    .animation(.spring(response: 0.35), value: selectedIssue?.id)
+                    .animation(.spring(response: 0.35), value: reportType != nil)
                 }
+            }
+            // Receive the measured callout height
+            .onPreferenceChange(CalloutHeightKey.self) { h in
+                if h > 0 { calloutHeight = h }
             }
 
             // ── Report confirm bar ─────────────────────────────────────────────
@@ -145,6 +164,9 @@ struct IssueMapView: View {
             }
         }
         .animation(.spring(response: 0.35), value: reportType)
+        .onChange(of: selectedIssue == nil) { dismissed in
+            if dismissed { calloutHeight = 0 }
+        }
         .onAppear {
             Task {
                 // Try to center on user's actual GPS location first
