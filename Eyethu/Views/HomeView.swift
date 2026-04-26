@@ -628,7 +628,9 @@ struct MessagingSheetView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var pushStatus: UNAuthorizationStatus = .notDetermined
-    @State private var requesting = false
+    @State private var requesting    = false
+    @State private var alerts: [APIService.MuniAlert] = []
+    @State private var alertsLoading = false
 
     init(title: String, icon: String, emptyTitle: String, emptySubtitle: String, isNotifications: Bool = false) {
         self.title = title
@@ -641,38 +643,23 @@ struct MessagingSheetView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: 12) {
 
                     // ── Push permission card (notifications sheet only) ────────
                     if isNotifications {
                         pushPermissionCard
                             .padding(.top, 8)
+                            .padding(.horizontal, 20)
                     }
 
-                    // ── Empty state ───────────────────────────────────────────
-                    VStack(spacing: 16) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 20)
-                                .fill(Color(.systemGray5))
-                                .frame(width: 72, height: 72)
-                            Image(systemName: icon)
-                                .font(.system(size: 30, weight: .light))
-                                .foregroundStyle(.secondary)
-                        }
-                        VStack(spacing: 6) {
-                            Text(emptyTitle)
-                                .font(.system(size: 17, weight: .semibold))
-                            Text(emptySubtitle)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 32)
-                        }
+                    // ── Messages list or empty state ──────────────────────────
+                    if !isNotifications {
+                        messagesContent
+                    } else {
+                        notificationsEmptyState
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 32)
                 }
-                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
             }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
@@ -688,7 +675,75 @@ struct MessagingSheetView: View {
         .task {
             if isNotifications {
                 await refreshPushStatus()
+            } else {
+                await loadAlerts()
             }
+        }
+    }
+
+    // ── Messages content ──────────────────────────────────────────────────────
+
+    @ViewBuilder
+    private var messagesContent: some View {
+        if alertsLoading {
+            ProgressView()
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 48)
+        } else if alerts.isEmpty {
+            emptyState(icon: "bubble.left.and.bubble.right",
+                       title: emptyTitle,
+                       subtitle: emptySubtitle)
+        } else {
+            VStack(spacing: 8) {
+                ForEach(alerts) { alert in
+                    AlertRow(alert: alert)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+        }
+    }
+
+    @ViewBuilder
+    private var notificationsEmptyState: some View {
+        emptyState(icon: "bell",
+                   title: emptyTitle,
+                   subtitle: emptySubtitle)
+    }
+
+    private func emptyState(icon: String, title: String, subtitle: String) -> some View {
+        VStack(spacing: 16) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color(.systemGray5))
+                    .frame(width: 72, height: 72)
+                Image(systemName: icon)
+                    .font(.system(size: 30, weight: .light))
+                    .foregroundStyle(.secondary)
+            }
+            VStack(spacing: 6) {
+                Text(title)
+                    .font(.system(size: 17, weight: .semibold))
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+    }
+
+    private func loadAlerts() async {
+        alertsLoading = true
+        if let fetched = try? await APIService.shared.fetchAlerts() {
+            await MainActor.run {
+                alerts = fetched.filter { $0.status == "active" }
+                alertsLoading = false
+            }
+        } else {
+            await MainActor.run { alertsLoading = false }
         }
     }
 
@@ -780,6 +835,53 @@ struct MessagingSheetView: View {
                 await MainActor.run { requesting = false }
             }
         }
+    }
+}
+
+// MARK: - Alert row
+
+struct AlertRow: View {
+    let alert: APIService.MuniAlert
+
+    private var severityColor: Color {
+        switch alert.severity {
+        case "critical": return .red
+        case "warning":  return .orange
+        default:         return .teal
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 10) {
+                Circle()
+                    .fill(severityColor)
+                    .frame(width: 8, height: 8)
+                    .padding(.top, 5)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack {
+                        Text(alert.title)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Text(alert.createdAt.relativeFormatted)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(alert.body)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(alert.tenantName)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(severityColor)
+                        .padding(.top, 2)
+                }
+            }
+        }
+        .padding(14)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
     }
 }
 

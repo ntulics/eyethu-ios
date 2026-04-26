@@ -162,6 +162,34 @@ actor APIService {
         return urls.blobUrl
     }
 
+    // MARK: - Alerts / Messages
+
+    struct MuniAlert: Identifiable, Codable {
+        let id: Int
+        let title: String
+        let body: String
+        let type: String
+        let severity: String
+        let tenantName: String
+        let status: String
+        let createdAt: Date
+        enum CodingKeys: String, CodingKey {
+            case id, title, body, type, severity, status
+            case tenantName = "tenant_name"
+            case createdAt  = "created_at"
+        }
+    }
+
+    private struct AlertsResponse: Codable {
+        let alerts: [MuniAlert]
+    }
+
+    func fetchAlerts() async throws -> [MuniAlert] {
+        let url = baseURL.appending(path: "/api/alerts")
+        let response: AlertsResponse = try await get(URLRequest(url: url))
+        return response.alerts
+    }
+
     // MARK: - Geocode
 
     struct GeocodeResult: Codable {
