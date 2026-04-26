@@ -2,9 +2,11 @@ import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject var store: IssueStore
-    @State private var showLogin = false
-    @State private var currentAreaName = "Near you"
-    @State private var showActiveIssues = false
+    @State private var showLogin           = false
+    @State private var currentAreaName    = "Near you"
+    @State private var showActiveIssues   = false
+    @State private var showMessages       = false
+    @State private var showNotifications  = false
 
     private var dateHeader: String {
         let f = DateFormatter()
@@ -65,6 +67,23 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showLogin) {
                 LoginView().environmentObject(store)
+            }
+            .sheet(isPresented: $showNotifications) {
+                MessagingSheetView(
+                    title: "Notifications",
+                    icon: "bell",
+                    emptyTitle: "No notifications yet",
+                    emptySubtitle: "You'll be notified when issues near you are updated or resolved.",
+                    isNotifications: true
+                )
+            }
+            .sheet(isPresented: $showMessages) {
+                MessagingSheetView(
+                    title: "Messages",
+                    icon: "bubble.left.and.bubble.right",
+                    emptyTitle: "No messages yet",
+                    emptySubtitle: "Updates and responses from your municipality will appear here."
+                )
             }
             .navigationDestination(isPresented: $showActiveIssues) {
                 IssueListView(entryFilter: .active)
@@ -304,40 +323,32 @@ struct HomeView: View {
 
             Spacer()
 
-            HStack(spacing: 12) {
-                Button {
-                    if store.currentUser == nil {
-                        showLogin = true
-                    }
-                } label: {
+            HStack(spacing: 10) {
+                // Notifications
+                Button { showNotifications = true } label: {
                     ZStack {
                         Circle()
                             .fill(Color.teal.opacity(0.12))
                             .frame(width: 34, height: 34)
-
-                        if store.currentUser != nil {
-                            Text(userInitials)
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(.teal)
-                        } else {
-                            Image(systemName: "person.circle")
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundStyle(.teal)
-                        }
+                        Image(systemName: "bell")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(.teal)
                     }
                 }
                 .buttonStyle(.plain)
 
-                Button {
-                    Task { await store.loadIssues() }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 19, weight: .medium))
-                        .foregroundStyle(.teal)
-                        .frame(width: 34, height: 34)
+                // Messages
+                Button { showMessages = true } label: {
+                    ZStack {
+                        Circle()
+                            .fill(Color.teal.opacity(0.12))
+                            .frame(width: 34, height: 34)
+                        Image(systemName: "bubble.left.and.bubble.right")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(.teal)
+                    }
                 }
                 .buttonStyle(.plain)
-                .disabled(store.isLoading)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
@@ -601,6 +612,174 @@ struct StatusCountCard: View {
         .padding(.vertical, 14)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
         .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
+    }
+}
+
+// MARK: - Messaging / Notifications sheet
+
+import UserNotifications
+
+struct MessagingSheetView: View {
+    let title: String
+    let icon: String
+    let emptyTitle: String
+    let emptySubtitle: String
+    let isNotifications: Bool
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var pushStatus: UNAuthorizationStatus = .notDetermined
+    @State private var requesting = false
+
+    init(title: String, icon: String, emptyTitle: String, emptySubtitle: String, isNotifications: Bool = false) {
+        self.title = title
+        self.icon = icon
+        self.emptyTitle = emptyTitle
+        self.emptySubtitle = emptySubtitle
+        self.isNotifications = isNotifications
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+
+                    // ── Push permission card (notifications sheet only) ────────
+                    if isNotifications {
+                        pushPermissionCard
+                            .padding(.top, 8)
+                    }
+
+                    // ── Empty state ───────────────────────────────────────────
+                    VStack(spacing: 16) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(Color(.systemGray5))
+                                .frame(width: 72, height: 72)
+                            Image(systemName: icon)
+                                .font(.system(size: 30, weight: .light))
+                                .foregroundStyle(.secondary)
+                        }
+                        VStack(spacing: 6) {
+                            Text(emptyTitle)
+                                .font(.system(size: 17, weight: .semibold))
+                            Text(emptySubtitle)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 32)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 32)
+                }
+                .padding(.horizontal, 20)
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .foregroundStyle(.teal)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .task {
+            if isNotifications {
+                await refreshPushStatus()
+            }
+        }
+    }
+
+    // ── Push permission card ──────────────────────────────────────────────────
+
+    @ViewBuilder
+    private var pushPermissionCard: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(pushStatus == .authorized
+                          ? Color.teal.opacity(0.12)
+                          : Color.orange.opacity(0.10))
+                    .frame(width: 44, height: 44)
+                Image(systemName: pushStatus == .authorized
+                      ? "bell.badge.fill"
+                      : "bell.slash")
+                    .font(.system(size: 18))
+                    .foregroundStyle(pushStatus == .authorized ? .teal : .orange)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(pushStatus == .authorized ? "Notifications on" : "Enable notifications")
+                    .font(.system(size: 14, weight: .semibold))
+                Text(pushStatus == .authorized
+                     ? "You'll be alerted when issues near you are updated."
+                     : "Get alerted when issues near you are reported or resolved.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+
+            if pushStatus == .notDetermined {
+                Button {
+                    requestPushPermission()
+                } label: {
+                    Text(requesting ? "…" : "Allow")
+                        .font(.system(size: 13, weight: .semibold))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color.orange, in: RoundedRectangle(cornerRadius: 10))
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
+                .disabled(requesting)
+            } else if pushStatus == .denied {
+                Button {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    Text("Settings")
+                        .font(.system(size: 13, weight: .semibold))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 10))
+                        .foregroundStyle(.primary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(14)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private func refreshPushStatus() async {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        await MainActor.run { pushStatus = settings.authorizationStatus }
+    }
+
+    private func requestPushPermission() {
+        requesting = true
+        Task {
+            do {
+                let granted = try await UNUserNotificationCenter.current()
+                    .requestAuthorization(options: [.alert, .badge, .sound])
+                await MainActor.run {
+                    pushStatus = granted ? .authorized : .denied
+                    if granted {
+                        UIApplication.shared.registerForRemoteNotifications()
+                    }
+                    requesting = false
+                }
+            } catch {
+                await MainActor.run { requesting = false }
+            }
+        }
     }
 }
 
