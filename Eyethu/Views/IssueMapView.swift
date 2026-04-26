@@ -1,17 +1,10 @@
 import SwiftUI
 import MapKit
 
-// Measures a view's height and bubbles it up via SwiftUI preferences
-private struct CalloutHeightKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
-}
-
 struct IssueMapView: View {
     @EnvironmentObject var store: IssueStore
     @State private var selectedIssue: Issue? = nil
     @State private var isRecentering = false
-    @State private var calloutHeight: CGFloat = 0
     @State private var cameraPosition: MapCameraPosition = .region(
         MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: -26.2041, longitude: 28.0473),
@@ -83,24 +76,11 @@ struct IssueMapView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
 
-            // ── Issue callout (normal mode) ────────────────────────────────────
-            if let issue = selectedIssue, reportType == nil {
-                IssueMapCallout(issue: issue) { selectedIssue = nil }
-                    // Measure actual rendered height so the recenter button floats just above
-                    .background(
-                        GeometryReader { geo in
-                            Color.clear.preference(key: CalloutHeightKey.self, value: geo.size.height)
-                        }
-                    )
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
-            }
-
-            // ── Recenter + FAB ─────────────────────────────────────────────────
-            VStack {
-                Spacer()
-                HStack {
+            // ── FAB + recenter + callout — single column anchored to bottom ────
+            // Keeping them in one VStack means the buttons are ALWAYS directly
+            // above the card — no height measurement or padding math needed.
+            VStack(spacing: 0) {
+                HStack(alignment: .bottom) {
                     Spacer()
                     VStack(spacing: 10) {
                         // Orange FAB — hidden in report mode
@@ -120,7 +100,7 @@ struct IssueMapView: View {
                             .transition(.scale.combined(with: .opacity))
                         }
 
-                        // Recenter — floats just above the callout when visible
+                        // Recenter
                         Button { recenterToUserLocation() } label: {
                             ZStack {
                                 Circle()
@@ -139,13 +119,19 @@ struct IssueMapView: View {
                         .buttonStyle(.plain)
                     }
                     .padding(.trailing, 16)
-                    // calloutHeight + 16pt bottom pad + 12pt gap above card, or default 28pt
-                    .padding(.bottom, reportType != nil ? 84 : (selectedIssue != nil ? calloutHeight + 28 : 28))
-                    .animation(.spring(response: 0.35), value: calloutHeight)
-                    .animation(.spring(response: 0.35), value: selectedIssue?.id)
-                    .animation(.spring(response: 0.35), value: reportType != nil)
+                    .padding(.bottom, 12)
+                }
+
+                // Callout card — sits directly below the buttons
+                if let issue = selectedIssue, reportType == nil {
+                    IssueMapCallout(issue: issue) { selectedIssue = nil }
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .padding(.horizontal, 16)
                 }
             }
+            .padding(.bottom, reportType != nil ? 84 : 16)
+            .animation(.spring(response: 0.35), value: reportType != nil)
+            .animation(.spring(response: 0.35), value: selectedIssue?.id)
 
             // ── Report confirm bar ─────────────────────────────────────────────
             if let rt = reportType {
@@ -159,14 +145,7 @@ struct IssueMapView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        // Preferences bubble UP to the ZStack — this is the correct attachment point
-        .onPreferenceChange(CalloutHeightKey.self) { h in
-            if h > 0 { calloutHeight = h }
-        }
         .animation(.spring(response: 0.35), value: reportType)
-        .onChange(of: selectedIssue == nil) { dismissed in
-            if dismissed { calloutHeight = 0 }
-        }
         .onAppear {
             Task {
                 // Try to center on user's actual GPS location first
