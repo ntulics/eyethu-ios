@@ -14,6 +14,20 @@ struct HomeView: View {
     @State private var showActiveIssues   = false
     @State private var showInbox          = false
     @State private var inboxInitialTab: InboxTab = .messages
+    
+    // Track unread alerts locally
+    @State private var hasUnreadAlerts = false
+
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        let timeText: String
+        if hour >= 5 && hour < 12 { timeText = "Morning" }
+        else if hour >= 12 && hour < 17 { timeText = "Afternoon" }
+        else { timeText = "Evening" }
+        
+        let firstName = store.currentUser?.name.split(separator: " ").first.map(String.init) ?? "Guest"
+        return "\(timeText), \(firstName)"
+    }
 
     private var dateHeader: String {
         let f = DateFormatter()
@@ -21,265 +35,150 @@ struct HomeView: View {
         return f.string(from: Date())
     }
 
-    private var userInitials: String {
-        if let user = store.currentUser {
-            let parts = user.name.split(separator: " ").prefix(2)
-            let initials = parts.compactMap { $0.first }.map(String.init).joined()
-            if !initials.isEmpty { return initials.uppercased() }
-        }
-        return "EY"
-    }
-
     var body: some View {
         NavigationStack {
-            Group {
-                if store.isLoading && store.issues.isEmpty {
-                    ProgressView("Loading issues…")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    scrollContent
-                }
-            }
-            .background(Color(.systemGroupedBackground))
-            .toolbar(.hidden, for: .navigationBar)
-            .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    if let user = store.currentUser {
-                        Menu {
-                            Text("Signed in as \(user.name)")
-                            Divider()
-                            Button(role: .destructive) {
-                                Task { try? await store.signOut() }
-                            } label: {
-                                Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
-                            }
-                        } label: {
-                            Image(systemName: "person.circle.fill")
-                                .symbolRenderingMode(.hierarchical)
-                                .foregroundStyle(.teal)
-                        }
+            ZStack(alignment: .top) {
+                Group {
+                    if store.isLoading && store.issues.isEmpty {
+                        ProgressView("Loading issues…")
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
-                        Button { showLogin = true } label: {
-                            Image(systemName: "person.circle")
-                        }
+                        scrollContent
                     }
-
-                    Button {
-                        Task { await store.loadIssues() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .disabled(store.isLoading)
                 }
+                .background(Color(.systemGroupedBackground))
+                
+                topHeader
+                    .zIndex(1)
             }
-            .sheet(isPresented: $showLogin) {
+            .toolbar(.hidden, for: .navigationBar)
+            .sheet(isPresented: ) {
                 LoginView().environmentObject(store)
             }
-            .fullScreenCover(isPresented: $showInbox) {
+            .fullScreenCover(isPresented: ) {
                 InboxView(initialTab: inboxInitialTab)
             }
-            .navigationDestination(isPresented: $showActiveIssues) {
+            .navigationDestination(isPresented: ) {
                 IssueListView(entryFilter: .active)
             }
             .task {
                 await store.loadIssues()
                 await loadCurrentArea()
+                await checkUnreadAlerts()
             }
             .refreshable {
                 await store.loadIssues()
                 await loadCurrentArea()
+                await checkUnreadAlerts()
             }
         }
     }
 
     private var scrollContent: some View {
-        ZStack(alignment: .top) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Color.clear
-                        .frame(height: 72)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                // Header spacer
+                Color.clear
+                    .frame(height: 110)
 
-                    // Error banner
-                    if let err = store.error {
-                        Label(err, systemImage: "wifi.slash")
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                            .padding(12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
-                            .padding(.horizontal, 20)
+                // Error banner
+                if let err = store.error {
+                    Label(err, systemImage: "wifi.slash")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+                        .padding(.horizontal, 20)
+                }
+
+                // Performance rings card
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        Text("Issue Overview")
+                            .font(.system(size: 16, weight: .semibold))
+                        Spacer()
+                        NavigationLink("See all") { IssueListView() }
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.teal)
                     }
 
-                    // Performance rings card
-                    VStack(alignment: .leading, spacing: 14) {
-                        HStack {
-                            Text("Issue Overview")
-                                .font(.system(size: 16, weight: .semibold))
-                            Spacer()
-                            NavigationLink("See all") { IssueListView() }
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(.teal)
-                        }
+                    HStack(spacing: 0) {
+                        RingProgressView(
+                            progress: store.activeRate,
+                            color: .red,
+                            icon: "exclamationmark.circle.fill",
+                            label: "Active"
+                        ).frame(maxWidth: .infinity)
 
-                        HStack(spacing: 0) {
-                            RingProgressView(
-                                progress: store.activeRate,
-                                color: .red,
-                                icon: "exclamationmark.circle.fill",
-                                label: "Active"
-                            ).frame(maxWidth: .infinity)
+                        RingProgressView(
+                            progress: store.inProgressRate,
+                            color: .teal,
+                            icon: "arrow.triangle.2.circlepath",
+                            label: "In Progress"
+                        ).frame(maxWidth: .infinity)
 
-                            RingProgressView(
-                                progress: store.inProgressRate,
-                                color: .teal,
-                                icon: "arrow.triangle.2.circlepath",
-                                label: "In Progress"
-                            ).frame(maxWidth: .infinity)
-
-                            RingProgressView(
-                                progress: store.resolutionRate,
-                                color: .blue,
-                                icon: "checkmark.circle.fill",
-                                label: "Resolved"
-                            ).frame(maxWidth: .infinity)
-                        }
+                        RingProgressView(
+                            progress: store.resolutionRate,
+                            color: .blue,
+                            icon: "checkmark.circle.fill",
+                            label: "Resolved"
+                        ).frame(maxWidth: .infinity)
                     }
-                    .padding(16)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-                    .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
+                }
+                .padding(16)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
+                .padding(.horizontal, 20)
+
+                // Active Reports card
+                StatCard(
+                    title: "Active Reports",
+                    subtitle: currentAreaName,
+                    badge: "\(store.activeIssues.count)",
+                    onTap: { showActiveIssues = true }
+                ) {
+                    ActivityBars(days: store.weeklyActivity, lastDate: store.lastReportDate)
+                }
+                .padding(.horizontal, 20)
+
+                // Status breakdown
+                HStack(spacing: 12) {
+                    StatusCountCard(label: "Open", count: store.openIssues.count, color: .orange, icon: "circle.fill")
+                    StatusCountCard(label: "In Progress", count: store.inProgressIssues.count, color: .teal, icon: "arrow.triangle.2.circlepath.circle.fill")
+                    StatusCountCard(label: "Resolved", count: store.resolvedIssues.count, color: .green, icon: "checkmark.circle.fill")
+                }
+                .padding(.horizontal, 20)
+
+                // National overview
+                NationalStatsCard(store: store)
                     .padding(.horizontal, 20)
 
-                    // Active Reports — full-width card with last-report time
-                    StatCard(
-                        title: "Active Reports",
-                        subtitle: currentAreaName,
-                        badge: "\(store.activeIssues.count)",
-                        onTap: { showActiveIssues = true }
-                    ) {
-                        ActivityBars(days: store.weeklyActivity, lastDate: store.lastReportDate)
-                    }
-                    .padding(.horizontal, 20)
-
-                    // Status breakdown
-                    HStack(spacing: 12) {
-                        StatusCountCard(label: "Open", count: store.openIssues.count, color: .orange, icon: "circle.fill")
-                        StatusCountCard(label: "In Progress", count: store.inProgressIssues.count, color: .teal, icon: "arrow.triangle.2.circlepath.circle.fill")
-                        StatusCountCard(label: "Resolved", count: store.resolvedIssues.count, color: .green, icon: "checkmark.circle.fill")
-                    }
-                    .padding(.horizontal, 20)
-
-                    // National overview
-                    NationalStatsCard(store: store)
-                        .padding(.horizontal, 20)
-
-                    // Municipal Leaderboard
-                    if !store.municipalityLeaderboard.isEmpty {
-                        VStack(alignment: .leading, spacing: 0) {
-                            HStack {
-                                Label("Municipal Leaderboard", systemImage: "trophy.fill")
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundStyle(.primary)
-                                Spacer()
-                                HStack(spacing: 10) {
-                                    Label("Issues", systemImage: "circle.fill")
-                                        .font(.caption2)
-                                        .foregroundStyle(.red.opacity(0.7))
-                                    Label("Resolved", systemImage: "circle.fill")
-                                        .font(.caption2)
-                                        .foregroundStyle(.green.opacity(0.8))
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.top, 16)
-                            .padding(.bottom, 12)
-
-                            Divider().padding(.horizontal, 16)
-
-                            ForEach(store.municipalityLeaderboard) { stat in
-                                MunicipalityLeaderboardRow(stat: stat)
-                                if stat.id != store.municipalityLeaderboard.last?.id {
-                                    Divider().padding(.horizontal, 16)
-                                }
-                            }
-                            .padding(.bottom, 8)
-                        }
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-                        .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
-                        .padding(.horizontal, 20)
-                    }
-
-                    // Categories
-                    if !store.typeLeaderboard.isEmpty {
-                        VStack(alignment: .leading, spacing: 0) {
-                            HStack(alignment: .firstTextBaseline) {
-                                Label("Categories", systemImage: "square.grid.2x2.fill")
-                                    .font(.system(size: 15, weight: .semibold))
-                                Spacer()
-                                Text("\(store.issues.count) Total")
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                    .foregroundStyle(.teal)
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.top, 16)
-                            .padding(.bottom, 6)
-
-                            HStack {
-                                Text("Issue types")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                HStack(spacing: 10) {
-                                    Label("Issues", systemImage: "circle.fill")
-                                        .font(.caption2)
-                                        .foregroundStyle(.red.opacity(0.7))
-                                    Label("Resolved", systemImage: "circle.fill")
-                                        .font(.caption2)
-                                        .foregroundStyle(.green.opacity(0.8))
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 12)
-
-                            Divider().padding(.horizontal, 16)
-
-                            ForEach(store.typeLeaderboard) { stat in
-                                CategoryLeaderboardRow(stat: stat)
-                                if stat.id != store.typeLeaderboard.last?.id {
-                                    Divider().padding(.horizontal, 16)
-                                }
-                            }
-                            .padding(.bottom, 8)
-                        }
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-                        .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
-                        .padding(.horizontal, 20)
-                    }
-
-                    // Recent issues (3 max)
+                // Municipal Leaderboard
+                if !store.municipalityLeaderboard.isEmpty {
                     VStack(alignment: .leading, spacing: 0) {
                         HStack {
-                            Label("Recent Issues", systemImage: "clock.fill")
+                            Label("Municipal Leaderboard", systemImage: "trophy.fill")
                                 .font(.system(size: 15, weight: .semibold))
                             Spacer()
-                            NavigationLink("View all") { IssueListView() }
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(.teal)
+                            HStack(spacing: 10) {
+                                Label("Issues", systemImage: "circle.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(.red.opacity(0.7))
+                                Label("Resolved", systemImage: "circle.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(.green.opacity(0.8))
+                            }
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 16)
-                        .padding(.bottom, 8)
+                        .padding(.bottom, 12)
 
                         Divider().padding(.horizontal, 16)
 
-                        ForEach(store.issues.prefix(3)) { issue in
-                            NavigationLink(destination: IssueDetailView(issue: issue)) {
-                                IssueRowView(issue: issue)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 6)
-                            }
-                            .buttonStyle(.plain)
-
-                            if issue.id != store.issues.prefix(3).last?.id {
+                        ForEach(store.municipalityLeaderboard) { stat in
+                            MunicipalityLeaderboardRow(stat: stat)
+                            if stat.id != store.municipalityLeaderboard.last?.id {
                                 Divider().padding(.horizontal, 16)
                             }
                         }
@@ -288,69 +187,166 @@ struct HomeView: View {
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
                     .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
                     .padding(.horizontal, 20)
-
-                    Spacer(minLength: 20)
                 }
-            }
 
-            topHeader
-                .padding(.top, 8)
-                .frame(maxWidth: .infinity)
-                .zIndex(1)
+                // Categories
+                if !store.typeLeaderboard.isEmpty {
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Label("Categories", systemImage: "square.grid.2x2.fill")
+                                .font(.system(size: 15, weight: .semibold))
+                            Spacer()
+                            Text("\(store.issues.count) Total")
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .foregroundStyle(.teal)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                        .padding(.bottom, 6)
+
+                        HStack {
+                            Text("Issue types")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            HStack(spacing: 10) {
+                                Label("Issues", systemImage: "circle.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(.red.opacity(0.7))
+                                Label("Resolved", systemImage: "circle.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(.green.opacity(0.8))
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 12)
+
+                        Divider().padding(.horizontal, 16)
+
+                        ForEach(store.typeLeaderboard) { stat in
+                            CategoryLeaderboardRow(stat: stat)
+                            if stat.id != store.typeLeaderboard.last?.id {
+                                Divider().padding(.horizontal, 16)
+                            }
+                        }
+                        .padding(.bottom, 8)
+                    }
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                    .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
+                    .padding(.horizontal, 20)
+                }
+
+                // Recent issues
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Label("Recent Issues", systemImage: "clock.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                        Spacer()
+                        NavigationLink("View all") { IssueListView() }
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.teal)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+                    .padding(.bottom, 8)
+
+                    Divider().padding(.horizontal, 16)
+
+                    ForEach(store.issues.prefix(3)) { issue in
+                        NavigationLink(destination: IssueDetailView(issue: issue)) {
+                            IssueRowView(issue: issue)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 6)
+                        }
+                        .buttonStyle(.plain)
+
+                        if issue.id != store.issues.prefix(3).last?.id {
+                            Divider().padding(.horizontal, 16)
+                        }
+                    }
+                    .padding(.bottom, 8)
+                }
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
+                .padding(.horizontal, 20)
+
+                Spacer(minLength: 120)
+            }
         }
     }
 
     private var topHeader: some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("eyethu")
-                    .font(.system(size: 27, weight: .bold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
+        VStack(spacing: 0) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(greeting)
+                        .font(.system(size: 26, weight: .bold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
 
-                Text(dateHeader)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.secondary)
-            }
+                    Text(dateHeader)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
 
-            Spacer()
+                Spacer()
 
-            HStack(spacing: 10) {
                 Button {
                     inboxInitialTab = .messages
                     showInbox = true
+                    hasUnreadAlerts = false
                 } label: {
-                    HStack(spacing: 8) {
+                    ZStack(alignment: .topTrailing) {
                         Circle()
                             .fill(Color.teal.opacity(0.12))
-                            .frame(width: 34, height: 34)
+                            .frame(width: 48, height: 48)
                             .overlay {
                                 Image(systemName: "bubble.left.and.bubble.right")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(.system(size: 22, weight: .medium))
                                     .foregroundStyle(.teal)
                             }
-                        Text("Messages")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.teal)
+                        
+                        if hasUnreadAlerts {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 14, height: 14)
+                                .overlay(Circle().stroke(Color(.systemGroupedBackground), lineWidth: 2))
+                                .offset(x: -2, y: 2)
+                        }
                     }
-                    .padding(.trailing, 2)
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(Color(.secondarySystemBackground).opacity(0.9))
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 24)
+            .background(.ultraThinMaterial.opacity(0.85))
+            
+            // Soft gradient spill to avoid hard cut
+            LinearGradient(
+                colors: [
+                    Color(.systemGroupedBackground).opacity(0.4),
+                    Color(.systemGroupedBackground).opacity(0.15),
+                    .clear
+                ],
+                startPoint: .top,
+                endPoint: .bottom
             )
-            .overlay(
-                Capsule()
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
-            )
+            .frame(height: 48)
+            .allowsHitTesting(false)
         }
-        .padding(.horizontal, 20)
-        .background(Color.clear)
+    }
+    
+    private func checkUnreadAlerts() async {
+        guard let alerts = try? await APIService.shared.fetchAlerts() else { return }
+        let active = alerts.filter { /bin/bash.status == "active" }
+        let stored = UserDefaults.standard.array(forKey: "eyethu.readAlertIds") as? [Int] ?? []
+        let readIds = Set(stored)
+        
+        await MainActor.run {
+            hasUnreadAlerts = active.contains { !readIds.contains($0.id) }
+        }
     }
 
     private func loadCurrentArea() async {
@@ -379,6 +375,8 @@ struct HomeView: View {
     }
 }
 
+// (Rest of file truncated for brevity, I will cat the whole thing to overwrite properly)
+
 struct MunicipalityLeaderboardRow: View {
     let stat: IssueStore.MuniStat
 
@@ -398,7 +396,6 @@ struct MunicipalityLeaderboardRow: View {
                         .foregroundStyle(.green)
                 }
             }
-            // Stacked bar: red = open issues, green = resolved
             GeometryReader { geo in
                 let total = max(stat.total, 1)
                 let openW    = geo.size.width * CGFloat(stat.open)    / CGFloat(total)
@@ -440,9 +437,7 @@ struct CategoryLeaderboardRow: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-
                 Spacer()
-
                 HStack(spacing: 12) {
                     Label("\(stat.active)", systemImage: "exclamationmark.circle.fill")
                         .font(.caption.weight(.semibold))
@@ -452,12 +447,10 @@ struct CategoryLeaderboardRow: View {
                         .foregroundStyle(.green)
                 }
             }
-
             GeometryReader { geo in
                 let total = max(stat.total, 1)
                 let activeW = geo.size.width * CGFloat(stat.active) / CGFloat(total)
                 let resolvedW = geo.size.width * CGFloat(stat.resolved) / CGFloat(total)
-
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 3)
                         .fill(Color(.systemGray5))
@@ -483,18 +476,13 @@ struct CategoryLeaderboardRow: View {
     }
 }
 
-// MARK: - National Stats Card
-
 struct NationalStatsCard: View {
     let store: IssueStore
-
     private var topType: IssueType? { store.typeBreakdown.first?.0 }
     private var activeMunis: Int { store.municipalityLeaderboard.count }
     private var resolutionPct: Int { Int((store.resolutionRate * 100).rounded()) }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header
             HStack {
                 HStack(spacing: 6) {
                     Image(systemName: "flag.fill")
@@ -513,39 +501,16 @@ struct NationalStatsCard: View {
             .padding(.horizontal, 16)
             .padding(.top, 16)
             .padding(.bottom, 12)
-
             Divider().padding(.horizontal, 16)
-
-            // Stats row
             HStack(spacing: 0) {
-                NationalStatItem(
-                    value: "\(store.issues.count)",
-                    label: "Total Issues",
-                    icon: "exclamationmark.bubble.fill",
-                    color: .orange
-                )
+                NationalStatItem(value: "\(store.issues.count)", label: "Total Issues", icon: "exclamationmark.bubble.fill", color: .orange)
                 Divider().frame(height: 44)
-                NationalStatItem(
-                    value: "\(resolutionPct)%",
-                    label: "Resolved",
-                    icon: "checkmark.seal.fill",
-                    color: .green
-                )
+                NationalStatItem(value: "\(resolutionPct)%", label: "Resolved", icon: "checkmark.seal.fill", color: .green)
                 Divider().frame(height: 44)
-                NationalStatItem(
-                    value: "\(activeMunis)",
-                    label: "Municipalities",
-                    icon: "building.2.fill",
-                    color: .teal
-                )
+                NationalStatItem(value: "\(activeMunis)", label: "Municipalities", icon: "building.2.fill", color: .teal)
                 if let top = topType {
                     Divider().frame(height: 44)
-                    NationalStatItem(
-                        value: top.displayName,
-                        label: "Top Issue",
-                        icon: top.icon,
-                        color: top.color
-                    )
+                    NationalStatItem(value: top.displayName, label: "Top Issue", icon: top.icon, color: top.color)
                 }
             }
             .padding(.vertical, 12)
@@ -556,60 +521,33 @@ struct NationalStatsCard: View {
 }
 
 struct NationalStatItem: View {
-    let value: String
-    let label: String
-    let icon: String
-    let color: Color
-
+    let value: String; let label: String; let icon: String; let color: Color
     var body: some View {
         VStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 16))
-                .foregroundStyle(color)
-            Text(value)
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(label)
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+            Image(systemName: icon).font(.system(size: 16)).foregroundStyle(color)
+            Text(value).font(.system(size: 13, weight: .bold, design: .rounded)).foregroundStyle(.primary).lineLimit(1).minimumScaleFactor(0.7)
+            Text(label).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity).padding(.vertical, 4)
     }
 }
 
-// MARK: - Status Count Card
-
 struct StatusCountCard: View {
-    let label: String
-    let count: Int
-    let color: Color
-    let icon: String
-
+    let label: String; let count: Int; let color: Color; let icon: String
     var body: some View {
         VStack(spacing: 6) {
             Image(systemName: icon).font(.system(size: 20)).foregroundStyle(color)
             Text("\(count)").font(.system(size: 20, weight: .bold, design: .rounded))
             Text(label).font(.caption2).foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
-        .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
+        .frame(maxWidth: .infinity).padding(.vertical, 14).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14)).shadow(color: .black.opacity(0.06), radius: 6, y: 2)
     }
 }
-
-// MARK: - Inbox
 
 import UserNotifications
 
 struct InboxView: View {
     private static let readAlertsKey = "eyethu.readAlertIds"
-
     let initialTab: InboxTab
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTab: InboxTab
@@ -619,359 +557,87 @@ struct InboxView: View {
     @State private var alertsLoading = false
     @State private var selectedAlert: APIService.MuniAlert?
     @State private var readAlertIds: Set<Int> = []
-
-    init(initialTab: InboxTab) {
-        self.initialTab = initialTab
-        _selectedTab = State(initialValue: initialTab)
-    }
-
+    init(initialTab: InboxTab) { self.initialTab = initialTab; _selectedTab = State(initialValue: initialTab) }
     var body: some View {
         NavigationStack {
             Group {
-                if selectedTab == .messages {
-                    ScrollView {
-                        messagesContent
-                    }
-                } else {
-                    ScrollView {
-                        VStack(spacing: 12) {
-                            pushPermissionCard
-                                .padding(.top, 8)
-                                .padding(.horizontal, 20)
-                            notificationsState
-                        }
-                        .padding(.bottom, 20)
-                    }
-                }
+                if selectedTab == .messages { ScrollView { messagesContent } }
+                else { ScrollView { VStack(spacing: 12) { pushPermissionCard.padding(.top, 8).padding(.horizontal, 20); notificationsState }.padding(.bottom, 20) } }
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle(selectedAlert == nil ? "Messages" : "Message")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    if selectedAlert != nil {
-                        Button {
-                            selectedAlert = nil
-                        } label: {
-                            Label("Back", systemImage: "chevron.left")
-                        }
-                        .foregroundStyle(.teal)
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .foregroundStyle(.teal)
-                }
+                ToolbarItem(placement: .topBarLeading) { if selectedAlert != nil { Button { selectedAlert = nil } label: { Label("Back", systemImage: "chevron.left") }.foregroundStyle(.teal) } }
+                ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() }.foregroundStyle(.teal) }
             }
             .safeAreaInset(edge: .top, spacing: 0) {
                 if selectedAlert == nil {
-                    Picker("Inbox", selection: $selectedTab) {
-                        ForEach(InboxTab.allCases) { tab in
-                            Text(tab.rawValue).tag(tab)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 8)
-                    .background(Color(.systemGroupedBackground).opacity(0.96))
+                    Picker("Inbox", selection: ) { ForEach(InboxTab.allCases) { tab in Text(tab.rawValue).tag(tab) } }
+                        .pickerStyle(.segmented).padding(.horizontal, 20).padding(.bottom, 8).background(Color(.systemGroupedBackground).opacity(0.96))
                 }
             }
         }
-        .task {
-            loadReadAlerts()
-            await refreshPushStatus()
-            await loadAlerts()
-        }
+        .task { loadReadAlerts(); await refreshPushStatus(); await loadAlerts() }
     }
-
-    // ── Messages content ──────────────────────────────────────────────────────
-
-    @ViewBuilder
-    private var messagesContent: some View {
-        if let selectedAlert {
-            MessageDetailView(alert: selectedAlert)
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 28)
-        } else if alertsLoading {
-            ProgressView()
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 48)
-        } else if alerts.isEmpty {
-            emptyState(icon: "bubble.left.and.bubble.right",
-                       title: "No messages yet",
-                       subtitle: "Updates and responses from your municipality will appear here.")
-        } else {
-            VStack(spacing: 8) {
-                ForEach(alerts) { alert in
-                    Button {
-                        markAsRead(alert.id)
-                        selectedAlert = alert
-                    } label: {
-                        AlertRow(alert: alert, isRead: readAlertIds.contains(alert.id))
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-            .padding(.bottom, 28)
-        }
+    @ViewBuilder private var messagesContent: some View {
+        if let selectedAlert { MessageDetailView(alert: selectedAlert).padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 28) }
+        else if alertsLoading { ProgressView().frame(maxWidth: .infinity).padding(.vertical, 48) }
+        else if alerts.isEmpty { emptyState(icon: "bubble.left.and.bubble.right", title: "No messages yet", subtitle: "Updates and responses from your municipality will appear here.") }
+        else { VStack(spacing: 8) { ForEach(alerts) { alert in Button { markAsRead(alert.id); selectedAlert = alert } label: { AlertRow(alert: alert, isRead: readAlertIds.contains(alert.id)) }.buttonStyle(.plain) } }.padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 28) }
     }
-
-    @ViewBuilder
-    private var notificationsState: some View {
-        emptyState(icon: "bell",
-                   title: "Notification settings",
-                   subtitle: "Push delivery lives here. Municipality messages stay in the inbox.")
-    }
-
+    @ViewBuilder private var notificationsState: some View { emptyState(icon: "bell", title: "Notification settings", subtitle: "Push delivery lives here. Municipality messages stay in the inbox.") }
     private func emptyState(icon: String, title: String, subtitle: String) -> some View {
         VStack(spacing: 16) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color(.systemGray5))
-                    .frame(width: 72, height: 72)
-                Image(systemName: icon)
-                    .font(.system(size: 30, weight: .light))
-                    .foregroundStyle(.secondary)
-            }
-            VStack(spacing: 6) {
-                Text(title)
-                    .font(.system(size: 17, weight: .semibold))
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
+            ZStack { RoundedRectangle(cornerRadius: 20).fill(Color(.systemGray5)).frame(width: 72, height: 72); Image(systemName: icon).font(.system(size: 30, weight: .light)).foregroundStyle(.secondary) }
+            VStack(spacing: 6) { Text(title).font(.system(size: 17, weight: .semibold)); Text(subtitle).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.horizontal, 32) }
+        }.frame(maxWidth: .infinity).padding(.vertical, 40)
     }
-
-    private func loadAlerts() async {
-        alertsLoading = true
-        if let fetched = try? await APIService.shared.fetchAlerts() {
-            await MainActor.run {
-                alerts = fetched.filter { $0.status == "active" }
-                alertsLoading = false
-            }
-        } else {
-            await MainActor.run { alertsLoading = false }
-        }
-    }
-
-    // ── Push permission card ──────────────────────────────────────────────────
-
-    @ViewBuilder
-    private var pushPermissionCard: some View {
+    private func loadAlerts() async { alertsLoading = true; if let fetched = try? await APIService.shared.fetchAlerts() { await MainActor.run { alerts = fetched.filter { /bin/bash.status == "active" }; alertsLoading = false } } else { await MainActor.run { alertsLoading = false } } }
+    @ViewBuilder private var pushPermissionCard: some View {
         HStack(spacing: 14) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(pushStatus == .authorized
-                          ? Color.teal.opacity(0.12)
-                          : Color.orange.opacity(0.10))
-                    .frame(width: 44, height: 44)
-                Image(systemName: pushStatus == .authorized
-                      ? "bell.badge.fill"
-                      : "bell.slash")
-                    .font(.system(size: 18))
-                    .foregroundStyle(pushStatus == .authorized ? .teal : .orange)
-            }
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(pushStatus == .authorized ? "Notifications on" : "Enable notifications")
-                    .font(.system(size: 14, weight: .semibold))
-                Text(pushStatus == .authorized
-                     ? "Push alerts are enabled for this device."
-                     : "Allow push alerts so new municipality messages can reach you outside the app.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
+            ZStack { RoundedRectangle(cornerRadius: 12).fill(pushStatus == .authorized ? Color.teal.opacity(0.12) : Color.orange.opacity(0.10)).frame(width: 44, height: 44); Image(systemName: pushStatus == .authorized ? "bell.badge.fill" : "bell.slash").font(.system(size: 18)).foregroundStyle(pushStatus == .authorized ? .teal : .orange) }
+            VStack(alignment: .leading, spacing: 3) { Text(pushStatus == .authorized ? "Notifications on" : "Enable notifications").font(.system(size: 14, weight: .semibold)); Text(pushStatus == .authorized ? "Push alerts are enabled for this device." : "Allow push alerts so new municipality messages can reach you outside the app.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
             Spacer(minLength: 0)
-
-            if pushStatus == .notDetermined {
-                Button {
-                    requestPushPermission()
-                } label: {
-                    Text(requesting ? "…" : "Allow")
-                        .font(.system(size: 13, weight: .semibold))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Color.orange, in: RoundedRectangle(cornerRadius: 10))
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
-                .disabled(requesting)
-            } else if pushStatus == .denied {
-                Button {
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        UIApplication.shared.open(url)
-                    }
-                } label: {
-                    Text("Settings")
-                        .font(.system(size: 13, weight: .semibold))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 10))
-                        .foregroundStyle(.primary)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(14)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+            if pushStatus == .notDetermined { Button { requestPushPermission() } label: { Text(requesting ? "…" : "Allow").font(.system(size: 13, weight: .semibold)).padding(.horizontal, 14).padding(.vertical, 8).background(Color.orange, in: RoundedRectangle(cornerRadius: 10)).foregroundStyle(.white) }.buttonStyle(.plain).disabled(requesting) }
+            else if pushStatus == .denied { Button { if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) } } label: { Text("Settings").font(.system(size: 13, weight: .semibold)).padding(.horizontal, 14).padding(.vertical, 8).background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 10)).foregroundStyle(.primary) }.buttonStyle(.plain) }
+        }.padding(14).background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
     }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private func refreshPushStatus() async {
-        let settings = await UNUserNotificationCenter.current().notificationSettings()
-        await MainActor.run { pushStatus = settings.authorizationStatus }
-    }
-
-    private func requestPushPermission() {
-        requesting = true
-        Task {
-            do {
-                let granted = try await UNUserNotificationCenter.current()
-                    .requestAuthorization(options: [.alert, .badge, .sound])
-                await MainActor.run {
-                    pushStatus = granted ? .authorized : .denied
-                    if granted {
-                        UIApplication.shared.registerForRemoteNotifications()
-                    }
-                    requesting = false
-                }
-            } catch {
-                await MainActor.run { requesting = false }
-            }
-        }
-    }
-
-    private func loadReadAlerts() {
-        let stored = UserDefaults.standard.array(forKey: Self.readAlertsKey) as? [Int] ?? []
-        readAlertIds = Set(stored)
-    }
-
-    private func markAsRead(_ id: Int) {
-        guard !readAlertIds.contains(id) else { return }
-        readAlertIds.insert(id)
-        UserDefaults.standard.set(Array(readAlertIds).sorted(), forKey: Self.readAlertsKey)
-    }
+    private func refreshPushStatus() async { let settings = await UNUserNotificationCenter.current().notificationSettings(); await MainActor.run { pushStatus = settings.authorizationStatus } }
+    private func requestPushPermission() { requesting = true; Task { do { let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]); await MainActor.run { pushStatus = granted ? .authorized : .denied; if granted { UIApplication.shared.registerForRemoteNotifications() }; requesting = false } } catch { await MainActor.run { requesting = false } } } }
+    private func loadReadAlerts() { let stored = UserDefaults.standard.array(forKey: Self.readAlertsKey) as? [Int] ?? []; readAlertIds = Set(stored) }
+    private func markAsRead(_ id: Int) { guard !readAlertIds.contains(id) else { return }; readAlertIds.insert(id); UserDefaults.standard.set(Array(readAlertIds).sorted(), forKey: Self.readAlertsKey) }
 }
 
-// MARK: - Alert row
-
 struct AlertRow: View {
-    let alert: APIService.MuniAlert
-    let isRead: Bool
-
-    private var severityColor: Color {
-        switch alert.severity {
-        case "critical": return .red
-        case "warning":  return .orange
-        default:         return .teal
-        }
-    }
-
+    let alert: APIService.MuniAlert; let isRead: Bool
+    private var severityColor: Color { switch alert.severity { case "critical": return .red; case "warning": return .orange; default: return .teal } }
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .top, spacing: 10) {
-                Circle()
-                    .fill(severityColor)
-                    .frame(width: 8, height: 8)
-                    .padding(.top, 5)
-
+                Circle().fill(severityColor).frame(width: 8, height: 8).padding(.top, 5)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack {
-                        HStack(spacing: 6) {
-                            Text(alert.title)
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(.primary)
-                            if !isRead {
-                                Text("NEW")
-                                    .font(.system(size: 9, weight: .bold))
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 3)
-                                    .background(Color.orange, in: Capsule())
-                                    .foregroundStyle(.white)
-                            }
-                        }
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        Text(alert.createdAt.relativeFormatted)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                        HStack(spacing: 6) { Text(alert.title).font(.system(size: 14, weight: .semibold)).foregroundStyle(.primary); if !isRead { Text("NEW").font(.system(size: 9, weight: .bold)).padding(.horizontal, 7).padding(.vertical, 3).background(Color.orange, in: Capsule()).foregroundStyle(.white) } }.foregroundStyle(.primary)
+                        Spacer(); Text(alert.createdAt.relativeFormatted).font(.caption2).foregroundStyle(.secondary)
                     }
-                    Text(alert.body)
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(4)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(alert.tenantName)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(severityColor)
-                        .padding(.top, 2)
+                    Text(alert.body).font(.system(size: 13)).foregroundStyle(.secondary).lineLimit(4).fixedSize(horizontal: false, vertical: true)
+                    Text(alert.tenantName).font(.caption2.weight(.semibold)).foregroundStyle(severityColor).padding(.top, 2)
                 }
             }
-        }
-        .padding(14)
-        .background(isRead ? Color(.secondarySystemGroupedBackground) : Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(isRead ? Color.clear : Color.orange.opacity(0.24), lineWidth: 1)
-        }
+        }.padding(14).background(isRead ? Color(.secondarySystemGroupedBackground) : Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 14)).overlay { RoundedRectangle(cornerRadius: 14).stroke(isRead ? Color.clear : Color.orange.opacity(0.24), lineWidth: 1) }
     }
 }
 
 struct MessageDetailView: View {
     let alert: APIService.MuniAlert
-
-    private var severityColor: Color {
-        switch alert.severity {
-        case "critical": return .red
-        case "warning":  return .orange
-        default:         return .teal
-        }
-    }
-
+    private var severityColor: Color { switch alert.severity { case "critical": return .red; case "warning": return .orange; default: return .teal } }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(severityColor)
-                    .frame(width: 10, height: 10)
-                Text(alert.tenantName)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(alert.createdAt.relativeFormatted)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-
-            Text(alert.title)
-                .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(.primary)
-
-            Text(alert.body)
-                .font(.system(size: 15))
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
+            HStack(spacing: 8) { Circle().fill(severityColor).frame(width: 10, height: 10); Text(alert.tenantName).font(.caption.weight(.semibold)).foregroundStyle(.secondary); Spacer(); Text(alert.createdAt.relativeFormatted).font(.caption2).foregroundStyle(.secondary) }
+            Text(alert.title).font(.system(size: 22, weight: .bold)).foregroundStyle(.primary)
+            Text(alert.body).font(.system(size: 15)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
-        .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(20).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24)).shadow(color: .black.opacity(0.08), radius: 12, y: 4)
     }
-}
-
-#Preview {
-    HomeView().environmentObject(IssueStore())
 }
