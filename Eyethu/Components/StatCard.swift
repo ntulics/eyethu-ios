@@ -78,7 +78,7 @@ struct StatCard<Content: View>: View {
 
 private let brandOrange = Color(hex: "#FF6B35")
 private let compactTrackHeight: CGFloat = 44
-private let compactBarWidth: CGFloat = 8
+private let compactBarWidth: CGFloat = 5
 private let trackHeight: CGFloat = 50
 private let barWidth: CGFloat = 9
 
@@ -217,10 +217,10 @@ private struct MiniWeeklyBars: View {
     }
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 0) {
+        HStack(alignment: .bottom, spacing: 4) {
             ForEach(Array(days.enumerated()), id: \.element.id) { index, day in
                 VStack(spacing: 3) {
-                    HStack(alignment: .bottom, spacing: 3) {
+                    HStack(alignment: .bottom, spacing: 2) {
                         MiniBar(height: barHeight(day.open), color: brandOrange)
                         MiniBar(height: barHeight(day.inProgress), color: .teal)
                         MiniBar(height: barHeight(day.resolved), color: .green)
