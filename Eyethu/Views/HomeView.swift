@@ -1,12 +1,19 @@
 import SwiftUI
 
+enum InboxTab: String, CaseIterable, Identifiable {
+    case messages = "Messages"
+    case notifications = "Notifications"
+
+    var id: String { rawValue }
+}
+
 struct HomeView: View {
     @EnvironmentObject var store: IssueStore
     @State private var showLogin           = false
     @State private var currentAreaName    = "Near you"
     @State private var showActiveIssues   = false
-    @State private var showMessages       = false
-    @State private var showNotifications  = false
+    @State private var showInbox          = false
+    @State private var inboxInitialTab: InboxTab = .messages
 
     private var dateHeader: String {
         let f = DateFormatter()
@@ -68,22 +75,8 @@ struct HomeView: View {
             .sheet(isPresented: $showLogin) {
                 LoginView().environmentObject(store)
             }
-            .sheet(isPresented: $showNotifications) {
-                MessagingSheetView(
-                    title: "Notifications",
-                    icon: "bell",
-                    emptyTitle: "No notifications yet",
-                    emptySubtitle: "You'll be notified when issues near you are updated or resolved.",
-                    isNotifications: true
-                )
-            }
-            .sheet(isPresented: $showMessages) {
-                MessagingSheetView(
-                    title: "Messages",
-                    icon: "bubble.left.and.bubble.right",
-                    emptyTitle: "No messages yet",
-                    emptySubtitle: "Updates and responses from your municipality will appear here."
-                )
+            .fullScreenCover(isPresented: $showInbox) {
+                InboxView(initialTab: inboxInitialTab)
             }
             .navigationDestination(isPresented: $showActiveIssues) {
                 IssueListView(entryFilter: .active)
@@ -324,29 +317,24 @@ struct HomeView: View {
             Spacer()
 
             HStack(spacing: 10) {
-                // Notifications
-                Button { showNotifications = true } label: {
-                    ZStack {
+                Button {
+                    inboxInitialTab = .messages
+                    showInbox = true
+                } label: {
+                    HStack(spacing: 8) {
                         Circle()
                             .fill(Color.teal.opacity(0.12))
                             .frame(width: 34, height: 34)
-                        Image(systemName: "bell")
-                            .font(.system(size: 16, weight: .medium))
+                            .overlay {
+                                Image(systemName: "bubble.left.and.bubble.right")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(.teal)
+                            }
+                        Text("Messages")
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(.teal)
                     }
-                }
-                .buttonStyle(.plain)
-
-                // Messages
-                Button { showMessages = true } label: {
-                    ZStack {
-                        Circle()
-                            .fill(Color.teal.opacity(0.12))
-                            .frame(width: 34, height: 34)
-                        Image(systemName: "bubble.left.and.bubble.right")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(.teal)
-                    }
+                    .padding(.trailing, 2)
                 }
                 .buttonStyle(.plain)
             }
@@ -615,69 +603,80 @@ struct StatusCountCard: View {
     }
 }
 
-// MARK: - Messaging / Notifications sheet
+// MARK: - Inbox
 
 import UserNotifications
 
-struct MessagingSheetView: View {
-    let title: String
-    let icon: String
-    let emptyTitle: String
-    let emptySubtitle: String
-    let isNotifications: Bool
-
+struct InboxView: View {
+    let initialTab: InboxTab
     @Environment(\.dismiss) private var dismiss
+    @State private var selectedTab: InboxTab
     @State private var pushStatus: UNAuthorizationStatus = .notDetermined
     @State private var requesting    = false
     @State private var alerts: [APIService.MuniAlert] = []
     @State private var alertsLoading = false
+    @State private var selectedAlert: APIService.MuniAlert?
 
-    init(title: String, icon: String, emptyTitle: String, emptySubtitle: String, isNotifications: Bool = false) {
-        self.title = title
-        self.icon = icon
-        self.emptyTitle = emptyTitle
-        self.emptySubtitle = emptySubtitle
-        self.isNotifications = isNotifications
+    init(initialTab: InboxTab) {
+        self.initialTab = initialTab
+        _selectedTab = State(initialValue: initialTab)
     }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 12) {
-
-                    // ── Push permission card (notifications sheet only) ────────
-                    if isNotifications {
-                        pushPermissionCard
-                            .padding(.top, 8)
-                            .padding(.horizontal, 20)
-                    }
-
-                    // ── Messages list or empty state ──────────────────────────
-                    if !isNotifications {
+            Group {
+                if selectedTab == .messages {
+                    ScrollView {
                         messagesContent
-                    } else {
-                        notificationsEmptyState
+                    }
+                } else {
+                    ScrollView {
+                        VStack(spacing: 12) {
+                            pushPermissionCard
+                                .padding(.top, 8)
+                                .padding(.horizontal, 20)
+                            notificationsState
+                        }
+                        .padding(.bottom, 20)
                     }
                 }
-                .padding(.bottom, 20)
             }
-            .navigationTitle(title)
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle(selectedAlert == nil ? "Messages" : "Message")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    if selectedAlert != nil {
+                        Button {
+                            selectedAlert = nil
+                        } label: {
+                            Label("Back", systemImage: "chevron.left")
+                        }
+                        .foregroundStyle(.teal)
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
                         .foregroundStyle(.teal)
                 }
             }
-        }
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
-        .task {
-            if isNotifications {
-                await refreshPushStatus()
-            } else {
-                await loadAlerts()
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if selectedAlert == nil {
+                    Picker("Inbox", selection: $selectedTab) {
+                        ForEach(InboxTab.allCases) { tab in
+                            Text(tab.rawValue).tag(tab)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
+                    .background(Color(.systemGroupedBackground).opacity(0.96))
+                }
             }
+        }
+        .task {
+            await refreshPushStatus()
+            await loadAlerts()
         }
     }
 
@@ -685,30 +684,41 @@ struct MessagingSheetView: View {
 
     @ViewBuilder
     private var messagesContent: some View {
-        if alertsLoading {
+        if let selectedAlert {
+            MessageDetailView(alert: selectedAlert)
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .padding(.bottom, 28)
+        } else if alertsLoading {
             ProgressView()
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 48)
         } else if alerts.isEmpty {
             emptyState(icon: "bubble.left.and.bubble.right",
-                       title: emptyTitle,
-                       subtitle: emptySubtitle)
+                       title: "No messages yet",
+                       subtitle: "Updates and responses from your municipality will appear here.")
         } else {
             VStack(spacing: 8) {
                 ForEach(alerts) { alert in
-                    AlertRow(alert: alert)
+                    Button {
+                        selectedAlert = alert
+                    } label: {
+                        AlertRow(alert: alert)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
+            .padding(.bottom, 28)
         }
     }
 
     @ViewBuilder
-    private var notificationsEmptyState: some View {
+    private var notificationsState: some View {
         emptyState(icon: "bell",
-                   title: emptyTitle,
-                   subtitle: emptySubtitle)
+                   title: "Notification settings",
+                   subtitle: "Push delivery lives here. Municipality messages stay in the inbox.")
     }
 
     private func emptyState(icon: String, title: String, subtitle: String) -> some View {
@@ -769,8 +779,8 @@ struct MessagingSheetView: View {
                 Text(pushStatus == .authorized ? "Notifications on" : "Enable notifications")
                     .font(.system(size: 14, weight: .semibold))
                 Text(pushStatus == .authorized
-                     ? "You'll be alerted when issues near you are updated."
-                     : "Get alerted when issues near you are reported or resolved.")
+                     ? "Push alerts are enabled for this device."
+                     : "Allow push alerts so new municipality messages can reach you outside the app.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -882,6 +892,50 @@ struct AlertRow: View {
         }
         .padding(14)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+struct MessageDetailView: View {
+    let alert: APIService.MuniAlert
+
+    private var severityColor: Color {
+        switch alert.severity {
+        case "critical": return .red
+        case "warning":  return .orange
+        default:         return .teal
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(severityColor)
+                    .frame(width: 10, height: 10)
+                Text(alert.tenantName)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(alert.createdAt.relativeFormatted)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(alert.title)
+                .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(.primary)
+
+            Text(alert.body)
+                .font(.system(size: 15))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
+        .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
     }
 }
 
