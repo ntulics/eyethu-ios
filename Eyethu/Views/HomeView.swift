@@ -79,7 +79,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 16) {
                 // Header spacer
                 Color.clear
-                    .frame(height: 110)
+                    .frame(height: 54)
 
                 // Error banner
                 if let err = store.error {
@@ -132,14 +132,18 @@ struct HomeView: View {
                 .padding(.horizontal, 20)
 
                 // Active Reports card
-                StatCard(
+                ActiveReportsCard(
                     title: "Active Reports",
                     subtitle: currentAreaName,
-                    badge: "\(store.activeIssues.count)",
+                    count: store.openIssues.count,
+                    accentColor: store.issues.first?.type.color ?? .teal,
+                    lastDate: store.lastReportDate,
+                    days: store.weeklyActivity,
+                    openCount: store.openIssues.count,
+                    inProgressCount: store.inProgressIssues.count,
+                    resolvedCount: store.resolvedIssues.count,
                     onTap: { showActiveIssues = true }
-                ) {
-                    ActivityBars(days: store.weeklyActivity, lastDate: store.lastReportDate)
-                }
+                )
                 .padding(.horizontal, 20)
 
                 // Status breakdown
@@ -320,21 +324,21 @@ struct HomeView: View {
                 .buttonStyle(.plain)
             }
             .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 24)
-            .background(.ultraThinMaterial.opacity(0.65))
+            .padding(.top, 10)
+            .padding(.bottom, 10)
+            .background(.ultraThinMaterial.opacity(0.34))
             
             // Very soft gradient spill to avoid hard cut
             LinearGradient(
                 stops: [
-                    .init(color: Color(.systemGroupedBackground).opacity(0.25), location: 0),
-                    .init(color: Color(.systemGroupedBackground).opacity(0.08), location: 0.4),
+                    .init(color: Color(.systemGroupedBackground).opacity(0.10), location: 0),
+                    .init(color: Color(.systemGroupedBackground).opacity(0.03), location: 0.42),
                     .init(color: .clear, location: 1.0)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
-            .frame(height: 64)
+            .frame(height: 18)
             .allowsHitTesting(false)
         }
     }
