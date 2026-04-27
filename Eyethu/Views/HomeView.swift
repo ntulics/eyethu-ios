@@ -608,6 +608,8 @@ struct StatusCountCard: View {
 import UserNotifications
 
 struct InboxView: View {
+    private static let readAlertsKey = "eyethu.readAlertIds"
+
     let initialTab: InboxTab
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTab: InboxTab
@@ -616,6 +618,7 @@ struct InboxView: View {
     @State private var alerts: [APIService.MuniAlert] = []
     @State private var alertsLoading = false
     @State private var selectedAlert: APIService.MuniAlert?
+    @State private var readAlertIds: Set<Int> = []
 
     init(initialTab: InboxTab) {
         self.initialTab = initialTab
@@ -675,6 +678,7 @@ struct InboxView: View {
             }
         }
         .task {
+            loadReadAlerts()
             await refreshPushStatus()
             await loadAlerts()
         }
@@ -701,9 +705,10 @@ struct InboxView: View {
             VStack(spacing: 8) {
                 ForEach(alerts) { alert in
                     Button {
+                        markAsRead(alert.id)
                         selectedAlert = alert
                     } label: {
-                        AlertRow(alert: alert)
+                        AlertRow(alert: alert, isRead: readAlertIds.contains(alert.id))
                     }
                     .buttonStyle(.plain)
                 }
@@ -846,12 +851,24 @@ struct InboxView: View {
             }
         }
     }
+
+    private func loadReadAlerts() {
+        let stored = UserDefaults.standard.array(forKey: Self.readAlertsKey) as? [Int] ?? []
+        readAlertIds = Set(stored)
+    }
+
+    private func markAsRead(_ id: Int) {
+        guard !readAlertIds.contains(id) else { return }
+        readAlertIds.insert(id)
+        UserDefaults.standard.set(Array(readAlertIds).sorted(), forKey: Self.readAlertsKey)
+    }
 }
 
 // MARK: - Alert row
 
 struct AlertRow: View {
     let alert: APIService.MuniAlert
+    let isRead: Bool
 
     private var severityColor: Color {
         switch alert.severity {
@@ -871,8 +888,19 @@ struct AlertRow: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     HStack {
-                        Text(alert.title)
-                            .font(.system(size: 14, weight: .semibold))
+                        HStack(spacing: 6) {
+                            Text(alert.title)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.primary)
+                            if !isRead {
+                                Text("NEW")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 3)
+                                    .background(Color.orange, in: Capsule())
+                                    .foregroundStyle(.white)
+                            }
+                        }
                             .foregroundStyle(.primary)
                         Spacer()
                         Text(alert.createdAt.relativeFormatted)
@@ -882,6 +910,7 @@ struct AlertRow: View {
                     Text(alert.body)
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
+                        .lineLimit(4)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(alert.tenantName)
                         .font(.caption2.weight(.semibold))
@@ -891,7 +920,11 @@ struct AlertRow: View {
             }
         }
         .padding(14)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+        .background(isRead ? Color(.secondarySystemGroupedBackground) : Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(isRead ? Color.clear : Color.orange.opacity(0.24), lineWidth: 1)
+        }
     }
 }
 
