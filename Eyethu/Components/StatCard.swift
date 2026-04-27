@@ -114,7 +114,7 @@ struct ActiveReportsCard: View {
                         .padding(.top, 2)
                 }
 
-                HStack(alignment: .bottom, spacing: 16) {
+                HStack(alignment: .bottom, spacing: 8) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("\(count)")
                             .font(.system(size: 44, weight: .black, design: .rounded))
@@ -127,12 +127,12 @@ struct ActiveReportsCard: View {
                                 .foregroundStyle(accentColor)
                         }
                     }
-                    .frame(width: 118, alignment: .leading)
+                    .frame(width: 92, alignment: .leading)
 
                     MiniWeeklyBars(days: days, accentColor: accentColor)
                         .frame(maxWidth: .infinity, alignment: .bottom)
                 }
-                .padding(.top, 18)
+                .padding(.top, 14)
 
                 Divider()
                     .padding(.top, 14)

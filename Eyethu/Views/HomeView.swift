@@ -146,14 +146,6 @@ struct HomeView: View {
                 )
                 .padding(.horizontal, 20)
 
-                // Status breakdown
-                HStack(spacing: 12) {
-                    StatusCountCard(label: "Open", count: store.openIssues.count, color: .orange, icon: "circle.fill")
-                    StatusCountCard(label: "In Progress", count: store.inProgressIssues.count, color: .teal, icon: "arrow.triangle.2.circlepath.circle.fill")
-                    StatusCountCard(label: "Resolved", count: store.resolvedIssues.count, color: .green, icon: "checkmark.circle.fill")
-                }
-                .padding(.horizontal, 20)
-
                 // National overview
                 NationalStatsCard(store: store)
                     .padding(.horizontal, 20)

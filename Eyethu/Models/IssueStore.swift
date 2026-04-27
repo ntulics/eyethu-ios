@@ -29,17 +29,19 @@ class IssueStore: ObservableObject {
     }
 
     var weeklyActivity: [DailyCount] {
-        let calendar = Calendar.current
+        var calendar = Calendar.current
+        calendar.firstWeekday = 2 // Monday
+
         let today = Date()
-        let dayLetters = ["S", "M", "T", "W", "T", "F", "S"] // Sun=1 … Sat=7
+        let weekInterval = calendar.dateInterval(of: .weekOfYear, for: today)
+        let startOfWeek = weekInterval?.start ?? today
+        let dayLetters = ["M", "T", "W", "T", "F", "S", "S"]
+
         return (0..<7).map { index in
-            let offset = index - 6
-            let date = calendar.date(byAdding: .day, value: offset, to: today)!
-            let weekdayIndex = calendar.component(.weekday, from: date) - 1
-            let label = dayLetters[weekdayIndex]
+            let date = calendar.date(byAdding: .day, value: index, to: startOfWeek) ?? today
             let dayIssues = issues.filter { calendar.isDate($0.createdAt, inSameDayAs: date) }
             return DailyCount(
-                weekday:    label,
+                weekday:    dayLetters[index],
                 open:       dayIssues.filter { $0.status == .open       }.count,
                 inProgress: dayIssues.filter { $0.status == .inProgress }.count,
                 resolved:   dayIssues.filter { $0.status == .resolved   }.count
