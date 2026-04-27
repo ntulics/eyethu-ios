@@ -322,19 +322,19 @@ struct HomeView: View {
             .padding(.horizontal, 20)
             .padding(.top, 16)
             .padding(.bottom, 24)
-            .background(.ultraThinMaterial.opacity(0.85))
+            .background(.ultraThinMaterial.opacity(0.65))
             
-            // Soft gradient spill to avoid hard cut
+            // Very soft gradient spill to avoid hard cut
             LinearGradient(
-                colors: [
-                    Color(.systemGroupedBackground).opacity(0.4),
-                    Color(.systemGroupedBackground).opacity(0.15),
-                    .clear
+                stops: [
+                    .init(color: Color(.systemGroupedBackground).opacity(0.25), location: 0),
+                    .init(color: Color(.systemGroupedBackground).opacity(0.08), location: 0.4),
+                    .init(color: .clear, location: 1.0)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
-            .frame(height: 48)
+            .frame(height: 64)
             .allowsHitTesting(false)
         }
     }
