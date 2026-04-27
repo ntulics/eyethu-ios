@@ -52,13 +52,13 @@ struct HomeView: View {
                     .zIndex(1)
             }
             .toolbar(.hidden, for: .navigationBar)
-            .sheet(isPresented: ) {
+            .sheet(isPresented: $showLogin) {
                 LoginView().environmentObject(store)
             }
-            .fullScreenCover(isPresented: ) {
+            .fullScreenCover(isPresented: $showInbox) {
                 InboxView(initialTab: inboxInitialTab)
             }
-            .navigationDestination(isPresented: ) {
+            .navigationDestination(isPresented: $showActiveIssues) {
                 IssueListView(entryFilter: .active)
             }
             .task {
@@ -160,6 +160,7 @@ struct HomeView: View {
                         HStack {
                             Label("Municipal Leaderboard", systemImage: "trophy.fill")
                                 .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(.primary)
                             Spacer()
                             HStack(spacing: 10) {
                                 Label("Issues", systemImage: "circle.fill")
@@ -340,7 +341,7 @@ struct HomeView: View {
     
     private func checkUnreadAlerts() async {
         guard let alerts = try? await APIService.shared.fetchAlerts() else { return }
-        let active = alerts.filter { /bin/bash.status == "active" }
+        let active = alerts.filter { $0.status == "active" }
         let stored = UserDefaults.standard.array(forKey: "eyethu.readAlertIds") as? [Int] ?? []
         let readIds = Set(stored)
         
@@ -374,8 +375,6 @@ struct HomeView: View {
         return "Near you"
     }
 }
-
-// (Rest of file truncated for brevity, I will cat the whole thing to overwrite properly)
 
 struct MunicipalityLeaderboardRow: View {
     let stat: IssueStore.MuniStat
@@ -573,7 +572,7 @@ struct InboxView: View {
             }
             .safeAreaInset(edge: .top, spacing: 0) {
                 if selectedAlert == nil {
-                    Picker("Inbox", selection: ) { ForEach(InboxTab.allCases) { tab in Text(tab.rawValue).tag(tab) } }
+                    Picker("Inbox", selection: $selectedTab) { ForEach(InboxTab.allCases) { tab in Text(tab.rawValue).tag(tab) } }
                         .pickerStyle(.segmented).padding(.horizontal, 20).padding(.bottom, 8).background(Color(.systemGroupedBackground).opacity(0.96))
                 }
             }
@@ -593,7 +592,7 @@ struct InboxView: View {
             VStack(spacing: 6) { Text(title).font(.system(size: 17, weight: .semibold)); Text(subtitle).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.horizontal, 32) }
         }.frame(maxWidth: .infinity).padding(.vertical, 40)
     }
-    private func loadAlerts() async { alertsLoading = true; if let fetched = try? await APIService.shared.fetchAlerts() { await MainActor.run { alerts = fetched.filter { /bin/bash.status == "active" }; alertsLoading = false } } else { await MainActor.run { alertsLoading = false } } }
+    private func loadAlerts() async { alertsLoading = true; if let fetched = try? await APIService.shared.fetchAlerts() { await MainActor.run { alerts = fetched.filter { $0.status == "active" }; alertsLoading = false } } else { await MainActor.run { alertsLoading = false } } }
     @ViewBuilder private var pushPermissionCard: some View {
         HStack(spacing: 14) {
             ZStack { RoundedRectangle(cornerRadius: 12).fill(pushStatus == .authorized ? Color.teal.opacity(0.12) : Color.orange.opacity(0.10)).frame(width: 44, height: 44); Image(systemName: pushStatus == .authorized ? "bell.badge.fill" : "bell.slash").font(.system(size: 18)).foregroundStyle(pushStatus == .authorized ? .teal : .orange) }
@@ -618,7 +617,7 @@ struct AlertRow: View {
                 Circle().fill(severityColor).frame(width: 8, height: 8).padding(.top, 5)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack {
-                        HStack(spacing: 6) { Text(alert.title).font(.system(size: 14, weight: .semibold)).foregroundStyle(.primary); if !isRead { Text("NEW").font(.system(size: 9, weight: .bold)).padding(.horizontal, 7).padding(.vertical, 3).background(Color.orange, in: Capsule()).foregroundStyle(.white) } }.foregroundStyle(.primary)
+                        HStack(spacing: 6) { Text(alert.title).font(.system(size: 14, weight: .semibold)).foregroundStyle(.primary); if !isRead { Text("NEW").font(.system(size: 9, weight: .bold)).padding(.horizontal, 7).padding(.vertical, 3).background(Color.orange, in: Capsule()) .foregroundStyle(.white) } }.foregroundStyle(.primary)
                         Spacer(); Text(alert.createdAt.relativeFormatted).font(.caption2).foregroundStyle(.secondary)
                     }
                     Text(alert.body).font(.system(size: 13)).foregroundStyle(.secondary).lineLimit(4).fixedSize(horizontal: false, vertical: true)
