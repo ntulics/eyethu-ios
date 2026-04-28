@@ -23,6 +23,7 @@ enum APIError: LocalizedError {
 actor APIService {
     static let shared = APIService()
     nonisolated static let appBaseURL = URL(string: "https://eyethu.org")!
+    nonisolated private static let nativeAuthTokenKey = "eyethu.nativeAuthToken"
     private let baseURL = APIService.appBaseURL
     private let session: URLSession
 
@@ -35,6 +36,19 @@ actor APIService {
         config.httpShouldSetCookies = true
         config.timeoutIntervalForRequest = 30
         session = URLSession(configuration: config)
+    }
+
+    nonisolated private static func readNativeAuthToken() -> String? {
+        UserDefaults.standard.string(forKey: nativeAuthTokenKey)
+    }
+
+    nonisolated private static func writeNativeAuthToken(_ token: String?) {
+        let defaults = UserDefaults.standard
+        if let token, !token.isEmpty {
+            defaults.set(token, forKey: nativeAuthTokenKey)
+        } else {
+            defaults.removeObject(forKey: nativeAuthTokenKey)
+        }
     }
 
     // MARK: - Issues
@@ -225,6 +239,7 @@ actor APIService {
     }
 
     func signIn(email: String, password: String) async throws -> SignInResult {
+        APIService.writeNativeAuthToken(nil)
         // Step 1: get CSRF token
         let csrfURL = baseURL.appending(path: "/api/auth/csrf")
         let (csrfData, _) = try await perform(URLRequest(url: csrfURL))
@@ -257,17 +272,40 @@ actor APIService {
         return response.providers
     }
 
+    private struct NativeExchangeResponse: Decodable {
+        let token: String
+        let user: SessionUser
+    }
+
+    func completeNativeSignIn(grant: String) async throws {
+        var req = URLRequest(url: baseURL.appending(path: "/api/auth/native/exchange"))
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["grant": grant])
+        let response: NativeExchangeResponse = try await send(req)
+        APIService.writeNativeAuthToken(response.token)
+    }
+
     func signOut() async throws {
+        if let nativeToken = APIService.readNativeAuthToken() {
+            var nativeReq = URLRequest(url: baseURL.appending(path: "/api/auth/native/signout"))
+            nativeReq.httpMethod = "POST"
+            nativeReq.setValue("Bearer \(nativeToken)", forHTTPHeaderField: "Authorization")
+            _ = try await perform(nativeReq)
+            APIService.writeNativeAuthToken(nil)
+        }
+
         var req = URLRequest(url: baseURL.appending(path: "/api/auth/signout"))
         req.httpMethod = "POST"
-        _ = try await perform(req)
+        _ = try? await perform(req)
         HTTPCookieStorage.shared.cookies?.forEach {
             HTTPCookieStorage.shared.deleteCookie($0)
         }
     }
 
     func fetchSession() async throws -> SessionUser? {
-        let url = baseURL.appending(path: "/api/auth/session")
+        let sessionPath = APIService.readNativeAuthToken() == nil ? "/api/auth/session" : "/api/auth/native/session"
+        let url = baseURL.appending(path: sessionPath)
         let (data, _) = try await perform(URLRequest(url: url))
         guard
             let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -301,7 +339,13 @@ actor APIService {
 
     private func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {
         do {
-            return try await session.data(for: request)
+            var authorizedRequest = request
+            if authorizedRequest.value(forHTTPHeaderField: "Authorization") == nil,
+               let token = APIService.readNativeAuthToken(),
+               authorizedRequest.url?.host == baseURL.host {
+                authorizedRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
+            return try await session.data(for: authorizedRequest)
         } catch {
             throw APIError.networkError(error)
         }
@@ -318,7 +362,7 @@ actor APIService {
     }
 }
 
-struct SessionUser {
+struct SessionUser: Decodable {
     let id: String
     let name: String
     let email: String

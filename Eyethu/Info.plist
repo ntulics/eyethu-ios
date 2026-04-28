@@ -26,6 +26,17 @@
 	<string>Eyethu needs photo access to attach pictures to issue reports.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Eyethu needs camera access to photograph issues.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>org.eyethu.native-auth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>eyethu</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

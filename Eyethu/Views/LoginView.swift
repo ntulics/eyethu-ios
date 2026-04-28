@@ -1,5 +1,6 @@
 import SwiftUI
-import WebKit
+import AuthenticationServices
+import UIKit
 
 struct LoginView: View {
     @EnvironmentObject var store: IssueStore
@@ -10,7 +11,7 @@ struct LoginView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var providers: [LoginProviderOption] = []
-    @State private var selectedProvider: LoginProviderOption?
+    @State private var authSession: ASWebAuthenticationSession?
 
     var body: some View {
         NavigationStack {
@@ -91,7 +92,7 @@ struct LoginView: View {
                             VStack(spacing: 10) {
                                 ForEach(providers) { provider in
                                     ProviderStateCard(provider: provider) {
-                                        selectedProvider = provider
+                                        startProviderSignIn(provider)
                                     }
                                 }
                             }
@@ -124,16 +125,6 @@ struct LoginView: View {
             .navigationBarTitleDisplayMode(.inline)
             .task {
                 await loadProviders()
-            }
-            .sheet(item: $selectedProvider) { provider in
-                OAuthWebLoginView(provider: provider) { success in
-                    if success {
-                        Task {
-                            await store.restoreSession()
-                            dismiss()
-                        }
-                    }
-                }
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -173,6 +164,63 @@ struct LoginView: View {
         } catch {
             providers = []
         }
+    }
+
+    private func startProviderSignIn(_ provider: LoginProviderOption) {
+        errorMessage = nil
+
+        var components = URLComponents(url: APIService.appBaseURL.appending(path: "/auth/login"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "callbackUrl", value: "/auth/native-complete"),
+            URLQueryItem(name: "provider", value: provider.key),
+        ]
+
+        guard let url = components.url else {
+            errorMessage = "Could not start sign-in."
+            return
+        }
+
+        let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "eyethu") { callbackURL, error in
+            if let error {
+                if (error as? ASWebAuthenticationSessionError)?.code != .canceledLogin {
+                    Task { @MainActor in
+                        errorMessage = error.localizedDescription
+                    }
+                }
+                Task { @MainActor in authSession = nil }
+                return
+            }
+
+            guard
+                let callbackURL,
+                let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false),
+                let grant = components.queryItems?.first(where: { $0.name == "grant" })?.value
+            else {
+                Task { @MainActor in
+                    errorMessage = "Sign-in completed, but the app did not receive a valid session."
+                }
+                Task { @MainActor in authSession = nil }
+                return
+            }
+
+            Task {
+                do {
+                    try await APIService.shared.completeNativeSignIn(grant: grant)
+                    await store.restoreSession()
+                    await MainActor.run { dismiss() }
+                } catch {
+                    await MainActor.run {
+                        errorMessage = error.localizedDescription
+                    }
+                }
+                await MainActor.run { authSession = nil }
+            }
+        }
+
+        session.presentationContextProvider = AuthPresentationContextProvider.shared
+        session.prefersEphemeralWebBrowserSession = false
+        authSession = session
+        session.start()
     }
 }
 
@@ -232,64 +280,14 @@ private struct ProviderStateCard: View {
     }
 }
 
-private struct OAuthWebLoginView: UIViewRepresentable {
-    let provider: LoginProviderOption
-    let onComplete: (Bool) -> Void
+private final class AuthPresentationContextProvider: NSObject, ASWebAuthenticationPresentationContextProviding {
+    static let shared = AuthPresentationContextProvider()
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onComplete: onComplete)
-    }
-
-    func makeUIView(context: Context) -> WKWebView {
-        let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .default()
-        let webView = WKWebView(frame: .zero, configuration: configuration)
-        webView.navigationDelegate = context.coordinator
-        webView.allowsBackForwardNavigationGestures = true
-
-        var components = URLComponents(url: APIService.appBaseURL.appending(path: "/auth/login"), resolvingAgainstBaseURL: false)!
-        components.queryItems = [
-            URLQueryItem(name: "callbackUrl", value: "/auth/native-complete"),
-            URLQueryItem(name: "provider", value: provider.key),
-        ]
-        webView.load(URLRequest(url: components.url!))
-        return webView
-    }
-
-    func updateUIView(_ uiView: WKWebView, context: Context) {}
-
-    final class Coordinator: NSObject, WKNavigationDelegate {
-        let onComplete: (Bool) -> Void
-        private var completed = false
-
-        init(onComplete: @escaping (Bool) -> Void) {
-            self.onComplete = onComplete
-        }
-
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            guard let url = webView.url else { return }
-            if url.path == "/auth/native-complete" {
-                syncCookies(from: webView) { [weak self] in
-                    guard let self, !self.completed else { return }
-                    self.completed = true
-                    self.onComplete(true)
-                }
-            }
-        }
-
-        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-            guard !completed else { return }
-            completed = true
-            onComplete(false)
-        }
-
-        private func syncCookies(from webView: WKWebView, completion: @escaping () -> Void) {
-            webView.configuration.websiteDataStore.httpCookieStore.getAllCookies { cookies in
-                let storage = HTTPCookieStorage.shared
-                cookies.forEach { storage.setCookie($0) }
-                completion()
-            }
-        }
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow) ?? ASPresentationAnchor()
     }
 }
 
