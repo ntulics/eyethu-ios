@@ -22,8 +22,8 @@ enum APIError: LocalizedError {
 
 actor APIService {
     static let shared = APIService()
-
-    private let baseURL = URL(string: "https://eyethu.org")!
+    nonisolated static let appBaseURL = URL(string: "https://eyethu.org")!
+    private let baseURL = APIService.appBaseURL
     private let session: URLSession
 
     // Persists NextAuth session cookie across calls
@@ -220,6 +220,10 @@ actor APIService {
         let error: String?
     }
 
+    private struct LoginProvidersResponse: Decodable {
+        let providers: [LoginProviderOption]
+    }
+
     func signIn(email: String, password: String) async throws -> SignInResult {
         // Step 1: get CSRF token
         let csrfURL = baseURL.appending(path: "/api/auth/csrf")
@@ -245,6 +249,12 @@ actor APIService {
             return SignInResult(ok: error == nil, error: error)
         }
         return SignInResult(ok: false, error: "Auth failed (\(code))")
+    }
+
+    func fetchLoginProviders() async throws -> [LoginProviderOption] {
+        let url = baseURL.appending(path: "/api/auth/integrations")
+        let response: LoginProvidersResponse = try await get(URLRequest(url: url))
+        return response.providers
     }
 
     func signOut() async throws {
@@ -318,6 +328,19 @@ struct SessionUser {
     func can(_ permission: String) -> Bool {
         permissions.contains(permission)
     }
+}
+
+struct LoginProviderOption: Decodable, Identifiable {
+    let key: String
+    let authProviderId: String
+    let name: String
+    let description: String
+    let brand: String
+    let configured: Bool
+    let enabled: Bool
+    let live: Bool
+
+    var id: String { key }
 }
 
 private extension String {
