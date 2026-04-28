@@ -239,44 +239,107 @@ private struct ProviderStateCard: View {
         Color(hex: provider.brand)
     }
 
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Circle()
-                .fill(brandColor)
-                .frame(width: 10, height: 10)
-                .padding(.top, 5)
+    @ViewBuilder
+    private var providerButton: some View {
+        if provider.key == "google" {
+            Button(action: onTap) {
+                HStack(spacing: 12) {
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 28, height: 28)
+                        .overlay(
+                            Text("G")
+                                .font(.system(size: 16, weight: .black))
+                                .foregroundStyle(Color(red: 66/255, green: 133/255, blue: 244/255))
+                        )
+                    Text("Sign in with Google")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.black.opacity(0.82))
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .frame(height: 50)
+                .background(Color.white, in: Capsule())
+            }
+            .buttonStyle(.plain)
+        } else if provider.key == "facebook" {
+            Button(action: onTap) {
+                HStack(spacing: 12) {
+                    Circle()
+                        .fill(Color.white.opacity(0.18))
+                        .frame(width: 28, height: 28)
+                        .overlay(
+                            Text("f")
+                                .font(.system(size: 18, weight: .black))
+                                .foregroundStyle(.white)
+                        )
+                    Text("Sign in with Facebook")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .frame(height: 50)
+                .background(brandColor, in: Capsule())
+            }
+            .buttonStyle(.plain)
+        } else {
+            Button(action: onTap) {
+                HStack(spacing: 12) {
+                    Circle()
+                        .fill(Color.white.opacity(0.18))
+                        .frame(width: 28, height: 28)
+                        .overlay(
+                            Image(systemName: "building.2.crop.circle.fill")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundStyle(.white)
+                        )
+                    Text("Continue with \(provider.name)")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .frame(height: 50)
+                .background(brandColor, in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+    }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(provider.name)
-                    .font(.system(size: 14, weight: .semibold))
-                Text(provider.description)
-                    .font(.caption)
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                Circle()
+                    .fill(brandColor)
+                    .frame(width: 10, height: 10)
+                    .padding(.top, 5)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(provider.name)
+                        .font(.system(size: 14, weight: .semibold))
+                    Text(provider.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 8)
+
+                Text(statusText)
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color(.secondarySystemBackground), in: Capsule())
             }
 
-            Spacer(minLength: 8)
-
-            Text(statusText)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Color(.secondarySystemBackground), in: Capsule())
+            if provider.live {
+                providerButton
+            }
         }
         .padding(14)
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(alignment: .bottomTrailing) {
-            if provider.live {
-                Button("Continue") { onTap() }
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(brandColor, in: Capsule())
-                    .padding(12)
-            }
-        }
     }
 }
 
