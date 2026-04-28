@@ -275,16 +275,23 @@ struct HomeView: View {
     private var topHeader: some View {
         VStack(spacing: 0) {
             HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(greeting)
-                        .font(.system(size: 26, weight: .bold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                HStack(alignment: .center, spacing: 12) {
+                    Image("BrandMark")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 42, height: 42)
 
-                    Text(dateHeader)
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(greeting)
+                            .font(.system(size: 26, weight: .bold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+
+                        Text(dateHeader)
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 Spacer()
