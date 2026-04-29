@@ -586,7 +586,7 @@ struct InboxView: View {
         if let selectedAlert { MessageDetailView(alert: selectedAlert).padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 28) }
         else if alertsLoading { ProgressView().frame(maxWidth: .infinity).padding(.vertical, 48) }
         else if alerts.isEmpty { emptyState(icon: "bubble.left.and.bubble.right", title: "No messages yet", subtitle: "Updates and responses from your municipality will appear here.") }
-        else { VStack(spacing: 8) { ForEach(alerts) { alert in Button { markAsRead(alert.id); selectedAlert = alert } label: { AlertRow(alert: alert, isRead: readAlertIds.contains(alert.id)) }.buttonStyle(.plain) } }.padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 28) }
+        else { VStack(spacing: 0) { ForEach(alerts) { alert in Button { markAsRead(alert.id); selectedAlert = alert } label: { AlertRow(alert: alert, isRead: readAlertIds.contains(alert.id)) }.buttonStyle(.plain) } }.padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 28) }
     }
     @ViewBuilder private var notificationsState: some View { emptyState(icon: "bell", title: "Notification settings", subtitle: "Push delivery lives here. Municipality messages stay in the inbox.") }
     private func emptyState(icon: String, title: String, subtitle: String) -> some View {
@@ -620,14 +620,18 @@ struct AlertRow: View {
                 Circle().fill(severityColor).frame(width: 8, height: 8).padding(.top, 5)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack {
-                        HStack(spacing: 6) { Text(alert.title).font(.system(size: 14, weight: .semibold)).foregroundStyle(.primary); if !isRead { Text("NEW").font(.system(size: 9, weight: .bold)).padding(.horizontal, 7).padding(.vertical, 3).background(Color.orange, in: Capsule()) .foregroundStyle(.white) } }.foregroundStyle(.primary)
-                        Spacer(); Text(alert.createdAt.relativeFormatted).font(.caption2).foregroundStyle(.secondary)
+                        HStack(spacing: 6) { Text(alert.title).font(.system(size: 18, weight: .bold)).foregroundStyle(.primary); if !isRead { Text("NEW").font(.system(size: 9, weight: .bold)).padding(.horizontal, 7).padding(.vertical, 3).background(Color.orange, in: Capsule()) .foregroundStyle(.white) } }.foregroundStyle(.primary)
+                        Spacer(); Text(alert.createdAt.relativeFormatted).font(.system(size: 14)).foregroundStyle(.secondary)
                     }
-                    Text(alert.body).font(.system(size: 13)).foregroundStyle(.secondary).lineLimit(4).fixedSize(horizontal: false, vertical: true)
-                    Text(alert.tenantName).font(.caption2.weight(.semibold)).foregroundStyle(severityColor).padding(.top, 2)
+                    Text(alert.body).font(.system(size: 16)).foregroundStyle(.secondary).lineLimit(4).fixedSize(horizontal: false, vertical: true)
+                    Text(alert.tenantName).font(.system(size: 16, weight: .semibold)).foregroundStyle(severityColor).padding(.top, 4)
                 }
             }
-        }.padding(14).background(isRead ? Color(.secondarySystemGroupedBackground) : Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 14)).overlay { RoundedRectangle(cornerRadius: 14).stroke(isRead ? Color.clear : Color.orange.opacity(0.24), lineWidth: 1) }
+        }
+        .padding(.vertical, 18)
+        .overlay(alignment: .bottom) {
+            Divider().padding(.leading, 18)
+        }
     }
 }
 
@@ -637,9 +641,9 @@ struct MessageDetailView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) { Circle().fill(severityColor).frame(width: 10, height: 10); Text(alert.tenantName).font(.caption.weight(.semibold)).foregroundStyle(.secondary); Spacer(); Text(alert.createdAt.relativeFormatted).font(.caption2).foregroundStyle(.secondary) }
-            Text(alert.title).font(.system(size: 22, weight: .bold)).foregroundStyle(.primary)
-            Text(alert.body).font(.system(size: 15)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text(alert.title).font(.system(size: 32, weight: .bold)).foregroundStyle(.primary)
+            Text(alert.body).font(.system(size: 18)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(20).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24)).shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
     }
 }

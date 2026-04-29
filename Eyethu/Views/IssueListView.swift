@@ -91,23 +91,28 @@ struct IssueListView: View {
     }
 
     private var listContent: some View {
-        List {
-            if filtered.isEmpty {
-                ContentUnavailableView(
-                    "No Issues Found",
-                    systemImage: "magnifyingglass",
-                    description: Text("Try adjusting your filters.")
-                )
-                .listRowBackground(Color.clear)
-            } else {
-                ForEach(filtered) { issue in
-                    NavigationLink(destination: IssueDetailView(issue: issue)) {
-                        IssueRowView(issue: issue)
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                if filtered.isEmpty {
+                    ContentUnavailableView(
+                        "No Issues Found",
+                        systemImage: "magnifyingglass",
+                        description: Text("Try adjusting your filters.")
+                    )
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 56)
+                } else {
+                    ForEach(filtered) { issue in
+                        NavigationLink(destination: IssueDetailView(issue: issue)) {
+                            IssueRowView(issue: issue)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 120)
         }
-        .listStyle(.plain)
     }
 }
 

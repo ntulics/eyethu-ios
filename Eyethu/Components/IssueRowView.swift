@@ -4,45 +4,48 @@ struct IssueRowView: View {
     let issue: Issue
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
             ZStack {
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: 14)
                     .fill(iconBackground)
-                    .frame(width: 44, height: 44)
-                IssueTypeGlyph(type: issue.type, size: 18, color: iconColor)
+                    .frame(width: 56, height: 56)
+                IssueTypeGlyph(type: issue.type, size: 26, color: iconColor)
             }
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(issue.type.displayName)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 17, weight: .bold))
                         .foregroundStyle(.primary)
                     Spacer()
                     StatusBadge(status: issue.status)
                 }
                 Text(issue.displayStreet)
-                    .font(.caption)
+                    .font(.system(size: 15))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 HStack(spacing: 8) {
                     if let muni = issue.municipality {
                         Label(muni, systemImage: "mappin.circle")
-                            .font(.caption2)
+                            .font(.system(size: 14))
                             .foregroundStyle(.tertiary)
                     }
                     if (issue.reportCount ?? 1) > 1 {
                         Label("\(issue.reportCount ?? 1) reports", systemImage: "person.2")
-                            .font(.caption2)
+                            .font(.system(size: 14))
                             .foregroundStyle(.tertiary)
                     }
                     Spacer()
                     Text(issue.createdAt.relativeFormatted)
-                        .font(.caption2)
+                        .font(.system(size: 14))
                         .foregroundStyle(.tertiary)
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 18)
+        .overlay(alignment: .bottom) {
+            Divider().padding(.leading, 70)
+        }
     }
 
     private var iconBackground: Color { issue.type.color.opacity(0.12) }
