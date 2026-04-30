@@ -23,35 +23,29 @@ struct IssueMapView: View {
         store.issues.filter { $0.coordinate != nil }
     }
 
+    private var visibleOutageCoverages: [OutageCoverage] {
+        mappableIssues.compactMap { issue in
+            guard issue.type.isWideAreaOutage else { return nil }
+            return OutageCoverage(issue: issue)
+        }
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             // ── Map ────────────────────────────────────────────────────────────
             Map(position: $cameraPosition) {
                 UserAnnotation()
 
-                ForEach(mappableIssues) { issue in
-                    // 1. Heatmap for power outages (threshold >= 5)
-                    if issue.type == .powerOutage, let count = issue.reportCount, count >= 5 {
-                        if let locations = issue.reportLocations, !locations.isEmpty {
-                            ForEach(locations, id: \.self) { loc in
-                                MapCircle(center: loc.coordinate, radius: 600)
-                                    .foregroundStyle(issue.type.color.opacity(0.12))
-                                    .mapOverlayLevel(level: .aboveLabels)
-                            }
-                        } else if let coord = issue.coordinate {
-                            // Fallback if individual report locations aren't loaded
-                            MapCircle(center: coord, radius: 1000)
-                                .foregroundStyle(issue.type.color.opacity(0.15))
-                                .mapOverlayLevel(level: .aboveLabels)
-                        }
-                    }
+                ForEach(visibleOutageCoverages) { coverage in
+                    MapPolygon(coordinates: coverage.coordinates)
+                        .foregroundStyle(coverage.issue.type.color.opacity(0.24))
+                        .stroke(coverage.issue.type.color.opacity(0.72), lineWidth: 2)
+                        .mapOverlayLevel(level: .aboveLabels)
+                }
 
-                    // 2. Standard Pins
+                ForEach(mappableIssues) { issue in
                     if let coord = issue.coordinate {
-                        // Power outages stay hidden as pins until they reach the 5-report threshold
-                        let isPowerOutageBelowThreshold = issue.type == .powerOutage && (issue.reportCount ?? 0) < 5
-                        
-                        if !isPowerOutageBelowThreshold {
+                        if !issue.type.isWideAreaOutage {
                             Annotation(issue.type.displayName, coordinate: coord) {
                                 IssueMapPin(issue: issue, isSelected: selectedIssue?.id == issue.id)
                                     .onTapGesture {
@@ -199,7 +193,7 @@ struct IssueMapView: View {
                 }
                 showTypePicker = false
             }
-            .presentationDetents([.height(350)])
+            .presentationDetents([.height(430)])
             .presentationDragIndicator(.visible)
         }
         // ── Report issue sheet ────────────────────────────────────────────────
@@ -239,6 +233,100 @@ struct IssueMapView: View {
                 }
             } catch {}
         }
+    }
+}
+
+private struct OutageCoverage: Identifiable {
+    let issue: Issue
+    let coordinates: [CLLocationCoordinate2D]
+
+    var id: Int { issue.id }
+
+    init?(issue: Issue) {
+        let anchors = Self.uniqueAnchors(for: issue)
+        let effectiveCount = max(issue.reportCount ?? 1, anchors.count)
+        guard effectiveCount >= 5, let ring = Self.coverageRing(for: anchors) else { return nil }
+        self.issue = issue
+        self.coordinates = ring
+    }
+
+    private static func uniqueAnchors(for issue: Issue) -> [CLLocationCoordinate2D] {
+        var seen = Set<String>()
+        var anchors: [CLLocationCoordinate2D] = []
+        if let coordinate = issue.coordinate { anchors.append(coordinate) }
+        anchors.append(contentsOf: issue.reportLocations?.map(\.coordinate) ?? [])
+
+        return anchors.filter { coordinate in
+            let key = String(format: "%.6f,%.6f", coordinate.latitude, coordinate.longitude)
+            guard !seen.contains(key) else { return false }
+            seen.insert(key)
+            return true
+        }
+    }
+
+    private static func coverageRing(for anchors: [CLLocationCoordinate2D], radiusMeters: Double = 450) -> [CLLocationCoordinate2D]? {
+        guard !anchors.isEmpty else { return nil }
+        var samples: [CLLocationCoordinate2D] = []
+        for anchor in anchors {
+            for step in 0..<24 {
+                let bearing = Double(step) * 2 * .pi / 24
+                samples.append(offset(anchor, distanceMeters: radiusMeters, bearingRadians: bearing))
+            }
+        }
+
+        let hull = convexHull(samples)
+        guard hull.count >= 3 else { return nil }
+        return hull + [hull[0]]
+    }
+
+    private static func offset(
+        _ coordinate: CLLocationCoordinate2D,
+        distanceMeters: Double,
+        bearingRadians: Double
+    ) -> CLLocationCoordinate2D {
+        let latMeters = 111_320.0
+        let lonMeters = max(1, latMeters * cos(coordinate.latitude * .pi / 180))
+        return CLLocationCoordinate2D(
+            latitude: coordinate.latitude + (sin(bearingRadians) * distanceMeters) / latMeters,
+            longitude: coordinate.longitude + (cos(bearingRadians) * distanceMeters) / lonMeters
+        )
+    }
+
+    private static func convexHull(_ points: [CLLocationCoordinate2D]) -> [CLLocationCoordinate2D] {
+        guard points.count > 3 else { return points }
+        let sorted = points.sorted {
+            if $0.longitude == $1.longitude { return $0.latitude < $1.latitude }
+            return $0.longitude < $1.longitude
+        }
+        var lower: [CLLocationCoordinate2D] = []
+        var upper: [CLLocationCoordinate2D] = []
+
+        for point in sorted {
+            while lower.count >= 2 && cross(lower[lower.count - 2], lower[lower.count - 1], point) <= 0 {
+                lower.removeLast()
+            }
+            lower.append(point)
+        }
+
+        for point in sorted.reversed() {
+            while upper.count >= 2 && cross(upper[upper.count - 2], upper[upper.count - 1], point) <= 0 {
+                upper.removeLast()
+            }
+            upper.append(point)
+        }
+
+        lower.removeLast()
+        upper.removeLast()
+        return lower + upper
+    }
+
+    private static func cross(
+        _ origin: CLLocationCoordinate2D,
+        _ a: CLLocationCoordinate2D,
+        _ b: CLLocationCoordinate2D
+    ) -> Double {
+        (a.longitude - origin.longitude) * (b.latitude - origin.latitude) -
+        (a.latitude - origin.latitude) * (b.longitude - origin.longitude)
     }
 }
 
@@ -338,6 +426,7 @@ struct ReportConfirmBar: View {
 
 struct IssueTypePickerSheet: View {
     let onSelect: (IssueType) -> Void
+    @State private var expandedCategory: IssueReportCategory? = nil
 
     private let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
 
@@ -349,16 +438,24 @@ struct IssueTypePickerSheet: View {
                 .padding(.bottom, 16)
 
             LazyVGrid(columns: columns, spacing: 10) {
-                ForEach(IssueType.allCases, id: \.self) { type in
-                    Button { onSelect(type) } label: {
+                ForEach(IssueReportCategory.all) { category in
+                    Button {
+                        if category.isGrouped {
+                            withAnimation(.spring(response: 0.25)) {
+                                expandedCategory = expandedCategory?.id == category.id ? nil : category
+                            }
+                        } else {
+                            onSelect(category.primaryType)
+                        }
+                    } label: {
                         VStack(spacing: 8) {
                             ZStack {
                                 Circle()
-                                    .fill(type.color.opacity(0.12))
+                                    .fill(category.primaryType.color.opacity(0.12))
                                     .frame(width: 52, height: 52)
-                                IssueTypeGlyph(type: type, size: 22, color: type.color)
+                                IssueTypeGlyph(type: category.primaryType, size: 22, color: category.primaryType.color)
                             }
-                            Text(type.displayName)
+                            Text(category.title)
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundStyle(.primary)
                                 .multilineTextAlignment(.center)
@@ -372,8 +469,30 @@ struct IssueTypePickerSheet: View {
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.bottom, 24)
+
+            if let category = expandedCategory {
+                HStack(spacing: 10) {
+                    ForEach(category.subtypes, id: \.self) { type in
+                        Button { onSelect(type) } label: {
+                            HStack(spacing: 8) {
+                                IssueTypeGlyph(type: type, size: 16, color: type.color)
+                                Text(type.displayName)
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(type.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+                            .foregroundStyle(type.color)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
+        .padding(.bottom, 24)
     }
 }
 

@@ -5,19 +5,25 @@ import SwiftUI
 enum IssueType: String, CaseIterable, Codable {
     case pothole        = "pothole"
     case waterLeak      = "water_leak"
+    case waterOutage    = "water_outage"
     case powerOutage    = "power_outage"
     case streetlight    = "streetlight"
     case illegalDumping = "illegal_dumping"
     case trafficLights  = "traffic_lights"
+    case sewerBlockage  = "sewer_blockage"
+    case sewerLeakage   = "sewer_leakage"
 
     var displayName: String {
         switch self {
         case .pothole:        return "Pothole"
         case .waterLeak:      return "Water Leak"
+        case .waterOutage:    return "Water Outage"
         case .powerOutage:    return "Power Outage"
         case .streetlight:    return "Streetlight"
         case .illegalDumping: return "Illegal Dumping"
         case .trafficLights:  return "Traffic Lights"
+        case .sewerBlockage:  return "Sewer Blockage"
+        case .sewerLeakage:   return "Sewer Leakage"
         }
     }
 
@@ -25,10 +31,13 @@ enum IssueType: String, CaseIterable, Codable {
         switch self {
         case .pothole:        return "exclamationmark.triangle.fill"
         case .waterLeak:      return "drop.fill"
+        case .waterOutage:    return "drop.triangle.fill"
         case .powerOutage:    return "bolt.fill"
         case .streetlight:    return "lightbulb.fill"
         case .illegalDumping: return "trash.fill"
         case .trafficLights:  return "car.2.fill"
+        case .sewerBlockage:  return "pipe.and.drop.fill"
+        case .sewerLeakage:   return "drop.degreesign.fill"
         }
     }
 
@@ -36,10 +45,13 @@ enum IssueType: String, CaseIterable, Codable {
         switch self {
         case .pothole:        return "icon-pothole"
         case .waterLeak:      return "icon-water-leak"
+        case .waterOutage:    return "icon-power-outage"
         case .powerOutage:    return "icon-power-outage"
         case .streetlight:    return "icon-streetlight"
         case .illegalDumping: return "icon-illegal-dumping"
         case .trafficLights:  return "icon-traffic-lights"
+        case .sewerBlockage:  return "icon-water-leak"
+        case .sewerLeakage:   return "icon-water-leak"
         }
     }
 
@@ -48,12 +60,39 @@ enum IssueType: String, CaseIterable, Codable {
         switch self {
         case .pothole:        return Color(hex: "#FF4444")
         case .waterLeak:      return Color(hex: "#3B82F6")
+        case .waterOutage:    return Color(hex: "#0891B2")
         case .powerOutage:    return Color(hex: "#FFB612")
         case .streetlight:    return Color(hex: "#F97316")
         case .illegalDumping: return Color(hex: "#22C55E")
         case .trafficLights:  return Color(hex: "#A855F7")
+        case .sewerBlockage:  return Color(hex: "#7C3AED")
+        case .sewerLeakage:   return Color(hex: "#0F766E")
         }
     }
+
+    var isWideAreaOutage: Bool {
+        self == .powerOutage || self == .waterOutage
+    }
+}
+
+struct IssueReportCategory: Identifiable, Hashable {
+    let id: String
+    let title: String
+    let primaryType: IssueType
+    let subtypes: [IssueType]
+
+    var types: [IssueType] { subtypes.isEmpty ? [primaryType] : subtypes }
+    var isGrouped: Bool { !subtypes.isEmpty }
+
+    static let all: [IssueReportCategory] = [
+        IssueReportCategory(id: "pothole", title: "Pothole", primaryType: .pothole, subtypes: []),
+        IssueReportCategory(id: "water", title: "Water", primaryType: .waterOutage, subtypes: [.waterOutage, .waterLeak]),
+        IssueReportCategory(id: "power_outage", title: "Power Outage", primaryType: .powerOutage, subtypes: []),
+        IssueReportCategory(id: "streetlight", title: "Streetlight", primaryType: .streetlight, subtypes: []),
+        IssueReportCategory(id: "illegal_dumping", title: "Illegal Dumping", primaryType: .illegalDumping, subtypes: []),
+        IssueReportCategory(id: "traffic_lights", title: "Traffic Lights", primaryType: .trafficLights, subtypes: []),
+        IssueReportCategory(id: "sewer", title: "Sewer", primaryType: .sewerBlockage, subtypes: [.sewerBlockage, .sewerLeakage]),
+    ]
 }
 
 enum IssueStatus: String, CaseIterable, Codable {
@@ -175,15 +214,19 @@ struct Issue: Identifiable, Codable {
 // Response shape when POST /api/issues detects a duplicate
 struct DuplicateIssueResponse: Codable {
     let duplicate: Bool
-    let existingId: Int
+    let existingId: Int?
     let reportCount: Int?
     let alreadyCounted: Bool?
+    let wideArea: Bool?
+    let message: String?
 
     enum CodingKeys: String, CodingKey {
         case duplicate
         case existingId    = "existing_id"
         case reportCount   = "report_count"
         case alreadyCounted = "already_counted"
+        case wideArea      = "wide_area"
+        case message
     }
 }
 

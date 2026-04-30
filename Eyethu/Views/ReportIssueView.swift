@@ -30,6 +30,7 @@ struct ReportIssueView: View {
     @State private var submitResult: CreateIssueResult? = nil
     @State private var submitError: String? = nil
     @State private var isGeolocating = false
+    @State private var expandedCategory: IssueReportCategory? = nil
 
     private var trimmedStreetAddress: String {
         streetAddress.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -123,12 +124,49 @@ struct ReportIssueView: View {
         VStack(alignment: .leading, spacing: 12) {
             stepHeader(title: "What's the issue?", subtitle: "Select a category")
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                ForEach(IssueType.allCases, id: \.self) { type in
-                    TypeCard(type: type, isSelected: selectedType == type) {
-                        selectedType = type
-                        withAnimation { step = 1 }
+                ForEach(IssueReportCategory.all) { category in
+                    TypeCategoryCard(
+                        category: category,
+                        isSelected: category.types.contains(selectedType)
+                    ) {
+                        if category.isGrouped {
+                            withAnimation(.spring(response: 0.25)) {
+                                expandedCategory = expandedCategory?.id == category.id ? nil : category
+                                if !category.types.contains(selectedType) {
+                                    selectedType = category.primaryType
+                                }
+                            }
+                        } else {
+                            expandedCategory = nil
+                            selectedType = category.primaryType
+                            withAnimation { step = 1 }
+                        }
                     }
                 }
+            }
+
+            if let category = expandedCategory {
+                HStack(spacing: 8) {
+                    ForEach(category.subtypes, id: \.self) { type in
+                        Button {
+                            selectedType = type
+                            withAnimation { step = 1 }
+                        } label: {
+                            HStack(spacing: 6) {
+                                IssueTypeGlyph(type: type, size: 14, color: type.color)
+                                Text(type.displayName)
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(selectedType == type ? type.color.opacity(0.16) : Color(.systemGray6), in: RoundedRectangle(cornerRadius: 12))
+                            .foregroundStyle(selectedType == type ? type.color : .primary)
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(selectedType == type ? type.color : .clear, lineWidth: 1.5))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
     }
@@ -357,13 +395,47 @@ struct ReportIssueView: View {
         case .duplicate(let dup):
             VStack(spacing: 16) {
                 Spacer()
-                Image(systemName: "exclamationmark.circle.fill").font(.system(size: 50)).foregroundStyle(.orange)
-                Text("Already Reported").font(.headline)
-                Text("Issue #\(dup.existingId) already exists.").font(.subheadline).foregroundStyle(.secondary)
+                Image(systemName: dup.wideArea == true ? "map.fill" : "exclamationmark.circle.fill").font(.system(size: 50)).foregroundStyle(.orange)
+                Text(dup.wideArea == true ? "Added To Nearby Outage" : "Already Reported").font(.headline)
+                Text(dup.message ?? duplicateMessage(for: dup)).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.horizontal)
                 Button("Done") { dismiss() }.buttonStyle(.bordered).tint(.orange)
                 Spacer()
             }
         }
+    }
+
+    private func duplicateMessage(for duplicate: DuplicateIssueResponse) -> String {
+        if let existingId = duplicate.existingId {
+            return "Issue #\(existingId) already exists."
+        }
+        return "You submitted a similar report recently."
+    }
+}
+
+struct TypeCategoryCard: View {
+    let category: IssueReportCategory
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                ZStack {
+                    Circle()
+                        .fill(isSelected ? category.primaryType.color : category.primaryType.color.opacity(0.1))
+                        .frame(width: 44, height: 44)
+                    IssueTypeGlyph(type: category.primaryType, size: 20, color: isSelected ? .white : category.primaryType.color)
+                }
+                Text(category.title)
+                    .font(.system(size: 10, weight: .medium))
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(isSelected ? category.primaryType.color.opacity(0.05) : Color(.systemGray6), in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(isSelected ? category.primaryType.color : .clear, lineWidth: 1.5))
+        }
+        .buttonStyle(.plain)
     }
 }
 
