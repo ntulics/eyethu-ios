@@ -318,6 +318,8 @@ struct StatusBadge: View {
         case .assigned:   return Color(hex: "#FF8A1F")
         case .inProgress: return .blue
         case .resolved:   return .green
+        case .reopened:   return .red
+        case .closed:     return .gray
         }
     }
 }

@@ -10,7 +10,7 @@ class IssueStore: ObservableObject {
 
     var activeIssues:     [Issue] { issues.filter { $0.isActive } }
     var resolvedIssues:   [Issue] { issues.filter { !$0.isActive } }
-    var openIssues:       [Issue] { issues.filter { $0.status == .open || $0.status == .assigned } }
+    var openIssues:       [Issue] { issues.filter { $0.status == .open || $0.status == .assigned || $0.status == .reopened } }
     var inProgressIssues: [Issue] { issues.filter { $0.status == .inProgress } }
 
     var lastReportDate: Date? { issues.map(\.createdAt).max() }
@@ -42,7 +42,7 @@ class IssueStore: ObservableObject {
             let dayIssues = issues.filter { calendar.isDate($0.createdAt, inSameDayAs: date) }
             return DailyCount(
                 weekday:    dayLetters[index],
-                open:       dayIssues.filter { $0.status == .open || $0.status == .assigned }.count,
+                open:       dayIssues.filter { $0.status == .open || $0.status == .assigned || $0.status == .reopened }.count,
                 inProgress: dayIssues.filter { $0.status == .inProgress }.count,
                 resolved:   dayIssues.filter { $0.status == .resolved   }.count
             )
@@ -72,7 +72,7 @@ class IssueStore: ObservableObject {
             let c = counts[muni] ?? (0, 0, 0)
             counts[muni] = (
                 total:    c.total + 1,
-                open:     c.open + ((issue.status == .open || issue.status == .assigned) ? 1 : 0),
+                open:     c.open + ((issue.status == .open || issue.status == .assigned || issue.status == .reopened) ? 1 : 0),
                 resolved: c.resolved + (issue.status == .resolved ? 1 : 0)
             )
         }

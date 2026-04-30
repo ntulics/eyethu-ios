@@ -107,6 +107,8 @@ enum IssueStatus: String, CaseIterable, Codable {
     case assigned   = "assigned"
     case inProgress = "in_progress"
     case resolved   = "resolved"
+    case reopened   = "reopened"
+    case closed     = "closed"
 
     var displayName: String {
         switch self {
@@ -114,6 +116,8 @@ enum IssueStatus: String, CaseIterable, Codable {
         case .assigned:   return "Assigned"
         case .inProgress: return "In Progress"
         case .resolved:   return "Resolved"
+        case .reopened:   return "Reopened"
+        case .closed:     return "Closed"
         }
     }
 }
@@ -202,7 +206,7 @@ struct Issue: Identifiable, Codable {
         return CLLocationCoordinate2D(latitude: lat, longitude: lon)
     }
 
-    var isActive: Bool { status != .resolved }
+    var isActive: Bool { status != .resolved && status != .closed }
     var displayAddress: String { streetAddress ?? municipality ?? "Unknown location" }
 
     /// Street name without the house number — e.g. "Henry Fagan Street" not "20 Henry Fagan Street"

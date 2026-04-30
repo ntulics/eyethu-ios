@@ -7,9 +7,11 @@ private let issueEmailSteps = ["Pending", "Sent", "Delivered", "Opened"]
 private func workflowStepIndex(for status: IssueStatus) -> Int {
     switch status {
     case .open:       return 0
+    case .reopened:   return 0
     case .assigned:   return 1
     case .inProgress: return 2
     case .resolved:   return 3
+    case .closed:     return 3
     }
 }
 
@@ -386,6 +388,8 @@ struct IssueDetailView: View {
         case .assigned:   return Color(hex: "#FF8A1F")
         case .inProgress: return .teal
         case .resolved:   return .green
+        case .reopened:   return .red
+        case .closed:     return .gray
         }
     }
 

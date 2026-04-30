@@ -20,12 +20,13 @@ struct IssueMapView: View {
     @State private var showReportSheet = false
 
     private var mappableIssues: [Issue] {
-        store.issues.filter { $0.coordinate != nil }
+        store.issues.filter { $0.coordinate != nil && $0.isActive }
     }
 
     private var visibleOutageCoverages: [OutageCoverage] {
         mappableIssues.compactMap { issue in
             guard issue.type.isWideAreaOutage else { return nil }
+            guard issue.isActive else { return nil }
             return OutageCoverage(issue: issue)
         }
     }
@@ -512,6 +513,8 @@ struct IssueMapPin: View {
         case .assigned:   return Color(hex: "#FF8A1F")
         case .inProgress: return .teal
         case .resolved:   return .green
+        case .reopened:   return .red
+        case .closed:     return .gray
         }
     }
 
