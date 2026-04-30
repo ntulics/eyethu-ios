@@ -30,15 +30,37 @@ struct IssueMapView: View {
                 UserAnnotation()
 
                 ForEach(mappableIssues) { issue in
+                    // 1. Heatmap for power outages (threshold >= 5)
+                    if issue.type == .powerOutage, let count = issue.reportCount, count >= 5 {
+                        if let locations = issue.reportLocations, !locations.isEmpty {
+                            ForEach(locations, id: \.self) { loc in
+                                MapCircle(center: loc.coordinate, radius: 600)
+                                    .foregroundStyle(issue.type.color.opacity(0.12))
+                                    .mapOverlayLevel(level: .aboveLabels)
+                            }
+                        } else if let coord = issue.coordinate {
+                            // Fallback if individual report locations aren't loaded
+                            MapCircle(center: coord, radius: 1000)
+                                .foregroundStyle(issue.type.color.opacity(0.15))
+                                .mapOverlayLevel(level: .aboveLabels)
+                        }
+                    }
+
+                    // 2. Standard Pins
                     if let coord = issue.coordinate {
-                        Annotation(issue.type.displayName, coordinate: coord) {
-                            IssueMapPin(issue: issue, isSelected: selectedIssue?.id == issue.id)
-                                .onTapGesture {
-                                    guard reportType == nil else { return }
-                                    withAnimation(.spring(response: 0.3)) {
-                                        selectedIssue = selectedIssue?.id == issue.id ? nil : issue
+                        // Power outages stay hidden as pins until they reach the 5-report threshold
+                        let isPowerOutageBelowThreshold = issue.type == .powerOutage && (issue.reportCount ?? 0) < 5
+                        
+                        if !isPowerOutageBelowThreshold {
+                            Annotation(issue.type.displayName, coordinate: coord) {
+                                IssueMapPin(issue: issue, isSelected: selectedIssue?.id == issue.id)
+                                    .onTapGesture {
+                                        guard reportType == nil else { return }
+                                        withAnimation(.spring(response: 0.3)) {
+                                            selectedIssue = selectedIssue?.id == issue.id ? nil : issue
+                                        }
                                     }
-                                }
+                            }
                         }
                     }
                 }

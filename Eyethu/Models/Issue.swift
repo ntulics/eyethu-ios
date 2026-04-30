@@ -103,6 +103,15 @@ struct IssuePhoto: Identifiable, Codable {
     }
 }
 
+struct ReportLocation: Codable, Hashable {
+    let lat: Double
+    let lon: Double
+
+    var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: lat, longitude: lon)
+    }
+}
+
 struct Issue: Identifiable, Codable {
     let id: Int
     let type: IssueType
@@ -125,6 +134,7 @@ struct Issue: Identifiable, Codable {
     let createdAt: Date
     // Populated by GET /api/issues/[id] (not present in list responses)
     let photos: [IssuePhoto]?
+    let reportLocations: [ReportLocation]?
 
     enum CodingKeys: String, CodingKey {
         case id, type, description, latitude, longitude, municipality, ward, status, source, photos
@@ -138,6 +148,7 @@ struct Issue: Identifiable, Codable {
         case emailError    = "email_error"
         case emailSentAt   = "email_sent_at"
         case createdAt     = "created_at"
+        case reportLocations = "report_locations"
     }
 
     var coordinate: CLLocationCoordinate2D? {
