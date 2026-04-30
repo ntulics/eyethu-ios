@@ -45,13 +45,13 @@ enum IssueType: String, CaseIterable, Codable {
         switch self {
         case .pothole:        return "icon-pothole"
         case .waterLeak:      return "icon-water-leak"
-        case .waterOutage:    return "icon-power-outage"
+        case .waterOutage:    return "icon-water-outage"
         case .powerOutage:    return "icon-power-outage"
         case .streetlight:    return "icon-streetlight"
         case .illegalDumping: return "icon-illegal-dumping"
         case .trafficLights:  return "icon-traffic-lights"
-        case .sewerBlockage:  return "icon-water-leak"
-        case .sewerLeakage:   return "icon-water-leak"
+        case .sewerBlockage:  return "icon-sewer-blockage"
+        case .sewerLeakage:   return "icon-sewer-leak"
         }
     }
 
@@ -83,6 +83,13 @@ struct IssueReportCategory: Identifiable, Hashable {
 
     var types: [IssueType] { subtypes.isEmpty ? [primaryType] : subtypes }
     var isGrouped: Bool { !subtypes.isEmpty }
+    var imageName: String {
+        switch id {
+        case "water": return "icon-water"
+        case "sewer": return "icon-sewer"
+        default: return primaryType.imageName
+        }
+    }
 
     static let all: [IssueReportCategory] = [
         IssueReportCategory(id: "pothole", title: "Pothole", primaryType: .pothole, subtypes: []),

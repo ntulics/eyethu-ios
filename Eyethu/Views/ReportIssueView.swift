@@ -424,7 +424,11 @@ struct TypeCategoryCard: View {
                     Circle()
                         .fill(isSelected ? category.primaryType.color : category.primaryType.color.opacity(0.1))
                         .frame(width: 44, height: 44)
-                    IssueTypeGlyph(type: category.primaryType, size: 20, color: isSelected ? .white : category.primaryType.color)
+                    Image(category.imageName)
+                        .resizable()
+                        .renderingMode(.original)
+                        .scaledToFit()
+                        .frame(width: 30, height: 30)
                 }
                 Text(category.title)
                     .font(.system(size: 10, weight: .medium))

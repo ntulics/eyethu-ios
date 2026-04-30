@@ -264,7 +264,7 @@ private struct OutageCoverage: Identifiable {
         }
     }
 
-    private static func coverageRing(for anchors: [CLLocationCoordinate2D], radiusMeters: Double = 800) -> [CLLocationCoordinate2D]? {
+    private static func coverageRing(for anchors: [CLLocationCoordinate2D], radiusMeters: Double = 180) -> [CLLocationCoordinate2D]? {
         guard !anchors.isEmpty else { return nil }
         var samples: [CLLocationCoordinate2D] = []
         for anchor in anchors {
@@ -453,7 +453,11 @@ struct IssueTypePickerSheet: View {
                                 Circle()
                                     .fill(category.primaryType.color.opacity(0.12))
                                     .frame(width: 52, height: 52)
-                                IssueTypeGlyph(type: category.primaryType, size: 22, color: category.primaryType.color)
+                                Image(category.imageName)
+                                    .resizable()
+                                    .renderingMode(.original)
+                                    .scaledToFit()
+                                    .frame(width: 33, height: 33)
                             }
                             Text(category.title)
                                 .font(.system(size: 11, weight: .medium))
