@@ -264,7 +264,7 @@ private struct OutageCoverage: Identifiable {
         }
     }
 
-    private static func coverageRing(for anchors: [CLLocationCoordinate2D], radiusMeters: Double = 450) -> [CLLocationCoordinate2D]? {
+    private static func coverageRing(for anchors: [CLLocationCoordinate2D], radiusMeters: Double = 800) -> [CLLocationCoordinate2D]? {
         guard !anchors.isEmpty else { return nil }
         var samples: [CLLocationCoordinate2D] = []
         for anchor in anchors {
