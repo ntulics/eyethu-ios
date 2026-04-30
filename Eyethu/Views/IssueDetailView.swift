@@ -1,9 +1,54 @@
 import SwiftUI
 import MapKit
 
+private let issueWorkflowSteps = ["Received", "Assigned", "In Progress", "Resolved"]
+private let issueEmailSteps = ["Pending", "Sent", "Delivered", "Opened"]
+
+private func workflowStepIndex(for status: IssueStatus) -> Int {
+    switch status {
+    case .open:       return 0
+    case .assigned:   return 1
+    case .inProgress: return 2
+    case .resolved:   return 3
+    }
+}
+
+private func emailStepIndex(for status: EmailDeliveryStatus?) -> Int {
+    switch status {
+    case .pending:   return 0
+    case .sent:      return 1
+    case .delivered: return 2
+    case .opened:    return 3
+    case nil:        return -1
+    }
+}
+
+private func emailStatusNote(for issue: Issue) -> String {
+    switch issue.emailRawStatus {
+    case "clicked":
+        return "Recipient clicked through from the issue email."
+    case "bounced":
+        return "The latest municipality email bounced."
+    case "soft_bounce":
+        return "The latest municipality email soft-bounced and may retry."
+    case "spam":
+        return "The latest municipality email was flagged as spam."
+    case "rejected":
+        return "The latest municipality email was rejected by the provider."
+    case "failed":
+        return issue.emailError ?? "The latest municipality email failed to send."
+    default:
+        if let sentAt = issue.emailSentAt {
+            return "Latest email update: \(issue.emailStatus?.displayName.lowercased() ?? "pending") on \(sentAt.shortFormatted)."
+        }
+        return "No municipality email has been sent for this issue yet."
+    }
+}
+
 struct IssueDetailView: View {
     let issue: Issue
     @EnvironmentObject var store: IssueStore
+    @State private var currentIssue: Issue
     @State private var showShareSheet   = false
     @State private var isWatching       = false
     @State private var isUpdatingStatus = false
@@ -13,7 +58,13 @@ struct IssueDetailView: View {
     @State private var photoPage = 0
     @State private var showFullMap = false
 
+    init(issue: Issue) {
+        self.issue = issue
+        _currentIssue = State(initialValue: issue)
+    }
+
     var body: some View {
+        let current = currentIssue
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
 
@@ -21,7 +72,7 @@ struct IssueDetailView: View {
                 let allPhotoURLs: [String] = {
                     var urls = photos.map(\.url)
                     // legacy single image_url fallback
-                    if urls.isEmpty, let u = issue.imageURL { urls = [u] }
+                    if urls.isEmpty, let u = current.imageURL { urls = [u] }
                     return urls
                 }()
 
@@ -69,15 +120,15 @@ struct IssueDetailView: View {
                 VStack(alignment: .leading, spacing: 16) {
 
                     // Status Badge (Moved up)
-                    StatusBadge(status: issue.status)
+                    StatusBadge(status: current.status)
                         .padding(.top, 8)
 
                     // Title + Voting Buttons
                     HStack(alignment: .center) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(issue.type.displayName)
+                            Text(current.type.displayName)
                                 .font(.system(size: 24, weight: .bold))
-                            Text(issue.displayStreet)
+                            Text(current.displayStreet)
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -123,10 +174,35 @@ struct IssueDetailView: View {
                         }
                     }
 
-                    if let desc = issue.description, !desc.isEmpty {
+                    if let desc = current.description, !desc.isEmpty {
                         Text(desc)
                             .font(.body)
                             .foregroundStyle(.primary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Issue Progress")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        ProgressStepTrack(
+                            steps: issueWorkflowSteps,
+                            completedIndex: workflowStepIndex(for: current.status),
+                            accentColor: statusColor(current.status)
+                        )
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Email Progress")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        ProgressStepTrack(
+                            steps: issueEmailSteps,
+                            completedIndex: emailStepIndex(for: current.emailStatus),
+                            accentColor: .teal
+                        )
+                        Text(emailStatusNote(for: current))
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.secondary)
                     }
 
                     Divider()
@@ -146,8 +222,8 @@ struct IssueDetailView: View {
                                             .font(.caption.weight(.semibold))
                                             .padding(.horizontal, 12)
                                             .padding(.vertical, 6)
-                                            .background(issue.status == s ? statusColor(s) : Color(.systemGray5), in: Capsule())
-                                            .foregroundStyle(issue.status == s ? .white : .primary)
+                                            .background(current.status == s ? statusColor(s) : Color(.systemGray5), in: Capsule())
+                                            .foregroundStyle(current.status == s ? .white : .primary)
                                     }
                                     .buttonStyle(.plain)
                                     .disabled(isUpdatingStatus)
@@ -162,20 +238,20 @@ struct IssueDetailView: View {
 
                     // Meta grid
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
-                        MetaItem(icon: "number",      label: "#\(issue.id)",                    title: "Issue ID")
-                        MetaItem(icon: "clock",       label: issue.createdAt.shortFormatted,    title: "Reported")
-                        if let ward = issue.ward {
+                        MetaItem(icon: "number",      label: "#\(current.id)",                    title: "Issue ID")
+                        MetaItem(icon: "clock",       label: current.createdAt.shortFormatted,    title: "Reported")
+                        if let ward = current.ward {
                             MetaItem(icon: "mappin",  label: ward,                              title: "Ward")
                         }
-                        MetaItem(icon: "checkmark.circle.fill", label: "\(issue.reportCount ?? 1) said yes",  title: "Still there")
-                        MetaItem(icon: "xmark.circle.fill",    label: "\(issue.disagreeCount ?? 0) said no",   title: "No longer")
+                        MetaItem(icon: "checkmark.circle.fill", label: "\(current.reportCount ?? 1) said yes",  title: "Still there")
+                        MetaItem(icon: "xmark.circle.fill",    label: "\(current.disagreeCount ?? 0) said no",   title: "No longer")
                         
                         MetaItem(
-                            icon:  (issue.source ?? "web") == "whatsapp" ? "message.fill" : (issue.source ?? "ios") == "ios" ? "iphone" : "globe",
-                            label: (issue.source ?? "web") == "whatsapp" ? "WhatsApp" : (issue.source ?? "ios") == "ios" ? "iOS App" : "Web",
+                            icon:  (current.source ?? "web") == "whatsapp" ? "message.fill" : (current.source ?? "ios") == "ios" ? "iphone" : "globe",
+                            label: (current.source ?? "web") == "whatsapp" ? "WhatsApp" : (current.source ?? "ios") == "ios" ? "iOS App" : "Web",
                             title: "Source"
                         )
-                        if let muni = issue.municipality {
+                        if let muni = current.municipality {
                             MetaItem(icon: "building.2", label: muni, title: "Municipality")
                         }
                         MetaItem(
@@ -197,7 +273,7 @@ struct IssueDetailView: View {
                     Divider()
 
                     // Mini map (Interactive)
-                    if let coord = issue.coordinate {
+                    if let coord = current.coordinate {
                         Button {
                             showFullMap = true
                         } label: {
@@ -205,8 +281,8 @@ struct IssueDetailView: View {
                                 center: coord,
                                 span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
                             ))) {
-                                Annotation(issue.type.displayName, coordinate: coord) {
-                                    IssueMapPin(issue: issue, isSelected: true)
+                                Annotation(current.type.displayName, coordinate: coord) {
+                                    IssueMapPin(issue: current, isSelected: true)
                                 }
                             }
                             .frame(height: 160)
@@ -220,13 +296,13 @@ struct IssueDetailView: View {
         }
         .sheet(isPresented: $showFullMap) {
             NavigationStack {
-                if let coord = issue.coordinate {
+                if let coord = current.coordinate {
                     Map(initialPosition: .region(MKCoordinateRegion(
                         center: coord,
                         span: MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)
                     ))) {
-                        Annotation(issue.type.displayName, coordinate: coord) {
-                            IssueMapPin(issue: issue, isSelected: true)
+                        Annotation(current.type.displayName, coordinate: coord) {
+                            IssueMapPin(issue: current, isSelected: true)
                         }
                     }
                     .navigationTitle("Location")
@@ -242,7 +318,9 @@ struct IssueDetailView: View {
             .presentationDragIndicator(.visible)
         }
         .task {
-            // Fetch photos separately (list API doesn't include them)
+            if let refreshed = try? await APIService.shared.fetchIssue(id: issue.id) {
+                currentIssue = refreshed
+            }
             if let fetched = try? await APIService.shared.fetchPhotos(issueId: issue.id) {
                 photos = fetched
             }
@@ -265,17 +343,20 @@ struct IssueDetailView: View {
             }
         }
         .sheet(isPresented: $showShareSheet) {
-            ShareSheet(items: ["\(issue.type.displayName) at \(issue.displayStreet)"])
+            ShareSheet(items: ["\(current.type.displayName) at \(current.displayStreet)"])
         }
     }
 
     private func updateStatus(_ status: IssueStatus) {
-        guard status != issue.status else { return }
+        guard status != currentIssue.status else { return }
         isUpdatingStatus = true
         errorMessage = nil
         Task {
             do {
-                try await store.updateStatus(issue: issue, status: status)
+                try await store.updateStatus(issue: currentIssue, status: status)
+                if let refreshed = try? await APIService.shared.fetchIssue(id: currentIssue.id) {
+                    currentIssue = refreshed
+                }
             } catch {
                 errorMessage = error.localizedDescription
             }
@@ -288,7 +369,10 @@ struct IssueDetailView: View {
         errorMessage = nil
         Task {
             do {
-                try await store.vote(issue: issue, type: type)
+                try await store.vote(issue: currentIssue, type: type)
+                if let refreshed = try? await APIService.shared.fetchIssue(id: currentIssue.id) {
+                    currentIssue = refreshed
+                }
             } catch {
                 errorMessage = error.localizedDescription
             }
@@ -298,7 +382,8 @@ struct IssueDetailView: View {
 
     private func statusColor(_ s: IssueStatus) -> Color {
         switch s {
-        case .open:       return issue.type.color
+        case .open:       return currentIssue.type.color
+        case .assigned:   return Color(hex: "#FF8A1F")
         case .inProgress: return .teal
         case .resolved:   return .green
         }
@@ -313,7 +398,7 @@ struct IssueDetailView: View {
                 ))
                 .frame(height: 220)
             VStack(spacing: 12) {
-                IssueTypeGlyph(type: issue.type, size: 60, weight: .thin, color: typeColor.opacity(0.6))
+                IssueTypeGlyph(type: currentIssue.type, size: 60, weight: .thin, color: typeColor.opacity(0.6))
                 Text("No photo attached")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -321,7 +406,42 @@ struct IssueDetailView: View {
         }
     }
 
-    private var typeColor: Color { issue.type.color }
+    private var typeColor: Color { currentIssue.type.color }
+}
+
+struct ProgressStepTrack: View {
+    let steps: [String]
+    let completedIndex: Int
+    let accentColor: Color
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                HStack(spacing: 0) {
+                    VStack(spacing: 7) {
+                        Circle()
+                            .fill(index <= completedIndex ? accentColor : Color(.systemGray5))
+                            .frame(width: 12, height: 12)
+                        Text(step)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(index <= completedIndex ? .primary : .secondary)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                    }
+                    if index < steps.count - 1 {
+                        Rectangle()
+                            .fill(index < completedIndex ? accentColor : Color(.systemGray5))
+                            .frame(height: 3)
+                            .frame(maxWidth: .infinity)
+                            .offset(y: -10)
+                            .padding(.horizontal, 6)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .top)
+            }
+        }
+        .padding(.top, 4)
+    }
 }
 
 struct MetaItem: View {

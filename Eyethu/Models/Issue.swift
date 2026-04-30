@@ -58,14 +58,32 @@ enum IssueType: String, CaseIterable, Codable {
 
 enum IssueStatus: String, CaseIterable, Codable {
     case open       = "open"
+    case assigned   = "assigned"
     case inProgress = "in_progress"
     case resolved   = "resolved"
 
     var displayName: String {
         switch self {
         case .open:       return "Open"
+        case .assigned:   return "Assigned"
         case .inProgress: return "In Progress"
         case .resolved:   return "Resolved"
+        }
+    }
+}
+
+enum EmailDeliveryStatus: String, Codable {
+    case pending
+    case sent
+    case delivered
+    case opened
+
+    var displayName: String {
+        switch self {
+        case .pending:   return "Pending"
+        case .sent:      return "Sent"
+        case .delivered: return "Delivered"
+        case .opened:    return "Opened"
         }
     }
 }
@@ -100,6 +118,10 @@ struct Issue: Identifiable, Codable {
     let reportCount: Int?
     let disagreeCount: Int?
     let imageURL: String?
+    let emailStatus: EmailDeliveryStatus?
+    let emailRawStatus: String?
+    let emailError: String?
+    let emailSentAt: Date?
     let createdAt: Date
     // Populated by GET /api/issues/[id] (not present in list responses)
     let photos: [IssuePhoto]?
@@ -111,6 +133,10 @@ struct Issue: Identifiable, Codable {
         case reportCount   = "report_count"
         case disagreeCount = "disagree_count"
         case imageURL      = "image_url"
+        case emailStatus   = "email_status"
+        case emailRawStatus = "email_raw_status"
+        case emailError    = "email_error"
+        case emailSentAt   = "email_sent_at"
         case createdAt     = "created_at"
     }
 

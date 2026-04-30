@@ -364,6 +364,7 @@ struct IssueMapPin: View {
     private var pinColor: Color {
         switch issue.status {
         case .open:       return issue.type.color
+        case .assigned:   return Color(hex: "#FF8A1F")
         case .inProgress: return .teal
         case .resolved:   return .green
         }

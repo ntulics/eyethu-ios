@@ -10,7 +10,7 @@ class IssueStore: ObservableObject {
 
     var activeIssues:     [Issue] { issues.filter { $0.isActive } }
     var resolvedIssues:   [Issue] { issues.filter { !$0.isActive } }
-    var openIssues:       [Issue] { issues.filter { $0.status == .open } }
+    var openIssues:       [Issue] { issues.filter { $0.status == .open || $0.status == .assigned } }
     var inProgressIssues: [Issue] { issues.filter { $0.status == .inProgress } }
 
     var lastReportDate: Date? { issues.map(\.createdAt).max() }
@@ -42,7 +42,7 @@ class IssueStore: ObservableObject {
             let dayIssues = issues.filter { calendar.isDate($0.createdAt, inSameDayAs: date) }
             return DailyCount(
                 weekday:    dayLetters[index],
-                open:       dayIssues.filter { $0.status == .open       }.count,
+                open:       dayIssues.filter { $0.status == .open || $0.status == .assigned }.count,
                 inProgress: dayIssues.filter { $0.status == .inProgress }.count,
                 resolved:   dayIssues.filter { $0.status == .resolved   }.count
             )
@@ -72,7 +72,7 @@ class IssueStore: ObservableObject {
             let c = counts[muni] ?? (0, 0, 0)
             counts[muni] = (
                 total:    c.total + 1,
-                open:     c.open + (issue.status == .open ? 1 : 0),
+                open:     c.open + ((issue.status == .open || issue.status == .assigned) ? 1 : 0),
                 resolved: c.resolved + (issue.status == .resolved ? 1 : 0)
             )
         }
@@ -203,35 +203,35 @@ class IssueStore: ObservableObject {
                   latitude: -26.2041, longitude: 28.0473,
                   municipality: "City of Johannesburg", streetAddress: "700-748 SE Monroe St",
                   ward: "Ward 12", tenantId: 1,
-                  status: .open, source: "web", reportCount: 5, disagreeCount: 0, imageURL: nil,
+                  status: .open, source: "web", reportCount: 5, disagreeCount: 0, imageURL: nil, emailStatus: nil, emailRawStatus: nil, emailError: nil, emailSentAt: nil,
                   createdAt: cal.date(byAdding: .hour, value: -2, to: now)!, photos: nil),
             Issue(id: 2, type: .waterLeak,
                   description: "Burst pipe flooding the sidewalk.",
                   latitude: -26.2051, longitude: 28.0483,
                   municipality: "City of Johannesburg", streetAddress: "12 Main Rd",
                   ward: "Ward 12", tenantId: 1,
-                  status: .inProgress, source: "whatsapp", reportCount: 3, disagreeCount: 1, imageURL: nil,
+                  status: .inProgress, source: "whatsapp", reportCount: 3, disagreeCount: 1, imageURL: nil, emailStatus: .delivered, emailRawStatus: "delivered", emailError: nil, emailSentAt: cal.date(byAdding: .hour, value: -20, to: now),
                   createdAt: cal.date(byAdding: .day, value: -1, to: now)!, photos: nil),
             Issue(id: 3, type: .streetlight,
                   description: "Street light out for 3 days.",
                   latitude: -26.2031, longitude: 28.0463,
                   municipality: "City of Johannesburg", streetAddress: "45 Oak Ave",
                   ward: "Ward 13", tenantId: 1,
-                  status: .resolved, source: "web", reportCount: 2, disagreeCount: 0, imageURL: nil,
+                  status: .resolved, source: "web", reportCount: 2, disagreeCount: 0, imageURL: nil, emailStatus: .opened, emailRawStatus: "opened", emailError: nil, emailSentAt: cal.date(byAdding: .day, value: -4, to: now),
                   createdAt: cal.date(byAdding: .day, value: -5, to: now)!, photos: nil),
             Issue(id: 4, type: .powerOutage,
                   description: "No electricity in the whole block.",
                   latitude: -26.2021, longitude: 28.0493,
                   municipality: "City of Johannesburg", streetAddress: "Bree St Block C",
                   ward: "Ward 12", tenantId: 1,
-                  status: .inProgress, source: "whatsapp", reportCount: 12, disagreeCount: 2, imageURL: nil,
+                  status: .assigned, source: "whatsapp", reportCount: 12, disagreeCount: 2, imageURL: nil, emailStatus: .sent, emailRawStatus: "sent", emailError: nil, emailSentAt: cal.date(byAdding: .hour, value: -16, to: now),
                   createdAt: cal.date(byAdding: .hour, value: -18, to: now)!, photos: nil),
             Issue(id: 5, type: .pothole,
                   description: "Multiple potholes along the stretch.",
                   latitude: -26.2011, longitude: 28.0503,
                   municipality: "City of Johannesburg", streetAddress: "N1 Freeway Offramp",
                   ward: "Ward 12", tenantId: 1,
-                  status: .resolved, source: "web", reportCount: 9, disagreeCount: 0, imageURL: nil,
+                  status: .resolved, source: "web", reportCount: 9, disagreeCount: 0, imageURL: nil, emailStatus: .opened, emailRawStatus: "clicked", emailError: nil, emailSentAt: cal.date(byAdding: .day, value: -9, to: now),
                   createdAt: cal.date(byAdding: .day, value: -10, to: now)!, photos: nil),
         ]
     }

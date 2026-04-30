@@ -315,6 +315,7 @@ struct StatusBadge: View {
     private var badgeColor: Color {
         switch status {
         case .open:       return .orange
+        case .assigned:   return Color(hex: "#FF8A1F")
         case .inProgress: return .blue
         case .resolved:   return .green
         }
