@@ -1,26 +1,26 @@
 import SwiftUI
 import MapKit
 
-private let issueWorkflowSteps = ["Received", "Assigned", "In Progress", "Resolved"]
-private let issueEmailSteps = ["Pending", "Sent", "Delivered", "Opened"]
+private let issueWorkflowSteps = ["Received", "In Progress", "Resolved"]
+private let issueEmailSteps = ["Sent", "Delivered", "Opened"]
 
 private func workflowStepIndex(for status: IssueStatus) -> Int {
     switch status {
     case .open:       return 0
     case .reopened:   return 0
-    case .assigned:   return 1
-    case .inProgress: return 2
-    case .resolved:   return 3
-    case .closed:     return 3
+    case .assigned:   return 0
+    case .inProgress: return 1
+    case .resolved:   return 2
+    case .closed:     return 2
     }
 }
 
 private func emailStepIndex(for status: EmailDeliveryStatus?) -> Int {
     switch status {
-    case .pending:   return 0
-    case .sent:      return 1
-    case .delivered: return 2
-    case .opened:    return 3
+    case .pending:   return -1
+    case .sent:      return 0
+    case .delivered: return 1
+    case .opened:    return 2
     case nil:        return -1
     }
 }
@@ -59,6 +59,7 @@ struct IssueDetailView: View {
     @State private var photos: [IssuePhoto] = []
     @State private var photoPage = 0
     @State private var showFullMap = false
+    @State private var showDirectionsDialog = false
 
     init(issue: Issue) {
         self.issue = issue
@@ -215,21 +216,33 @@ struct IssueDetailView: View {
                             Text("Update Status")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                            HStack(spacing: 8) {
-                                ForEach(IssueStatus.allCases, id: \.self) { s in
-                                    Button {
-                                        updateStatus(s)
-                                    } label: {
-                                        Text(s.displayName)
-                                            .font(.caption.weight(.semibold))
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 6)
-                                            .background(current.status == s ? statusColor(s) : Color(.systemGray5), in: Capsule())
-                                            .foregroundStyle(current.status == s ? .white : .primary)
+                            HStack(spacing: 10) {
+                                Menu {
+                                    ForEach(IssueStatus.allCases, id: \.self) { s in
+                                        Button {
+                                            updateStatus(s)
+                                        } label: {
+                                            if current.status == s {
+                                                Label(s.displayName, systemImage: "checkmark")
+                                            } else {
+                                                Text(s.displayName)
+                                            }
+                                        }
                                     }
-                                    .buttonStyle(.plain)
-                                    .disabled(isUpdatingStatus)
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Text(current.status.displayName)
+                                            .font(.caption.weight(.semibold))
+                                        Image(systemName: "chevron.down")
+                                            .font(.system(size: 10, weight: .bold))
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(statusColor(current.status).opacity(0.16), in: Capsule())
+                                    .foregroundStyle(statusColor(current.status))
                                 }
+                                .disabled(isUpdatingStatus)
+                                .buttonStyle(.plain)
                                 if isUpdatingStatus {
                                     ProgressView().scaleEffect(0.7)
                                 }
@@ -276,6 +289,31 @@ struct IssueDetailView: View {
 
                     // Mini map (Interactive)
                     if let coord = current.coordinate {
+                        HStack {
+                            Button {
+                                showFullMap = true
+                            } label: {
+                                Label("View map", systemImage: "map")
+                                    .font(.caption.weight(.semibold))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(Color(.systemGray5), in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+
+                            Button {
+                                showDirectionsDialog = true
+                            } label: {
+                                Label("Go there", systemImage: "location.fill")
+                                    .font(.caption.weight(.semibold))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(Color.orange.opacity(0.18), in: Capsule())
+                                    .foregroundStyle(.orange)
+                            }
+                            .buttonStyle(.plain)
+                        }
+
                         Button {
                             showFullMap = true
                         } label: {
@@ -318,6 +356,11 @@ struct IssueDetailView: View {
             }
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
+        }
+        .confirmationDialog("Open directions", isPresented: $showDirectionsDialog, titleVisibility: .visible) {
+            Button("Apple Maps") { openDirections(in: .apple) }
+            Button("Google Maps") { openDirections(in: .google) }
+            Button("Cancel", role: .cancel) {}
         }
         .task {
             if let refreshed = try? await APIService.shared.fetchIssue(id: issue.id) {
@@ -380,6 +423,25 @@ struct IssueDetailView: View {
             }
             isVoting = false
         }
+    }
+
+    private enum DirectionsApp {
+        case apple
+        case google
+    }
+
+    private func openDirections(in app: DirectionsApp) {
+        guard let coord = currentIssue.coordinate else { return }
+        let destination = "\(coord.latitude),\(coord.longitude)"
+        let urlString: String
+        switch app {
+        case .apple:
+            urlString = "https://maps.apple.com/?daddr=\(destination)"
+        case .google:
+            urlString = "https://www.google.com/maps/dir/?api=1&destination=\(destination)"
+        }
+        guard let url = URL(string: urlString) else { return }
+        UIApplication.shared.open(url)
     }
 
     private func statusColor(_ s: IssueStatus) -> Color {
