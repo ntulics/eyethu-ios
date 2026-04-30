@@ -110,6 +110,12 @@ enum IssueStatus: String, CaseIterable, Codable {
     case reopened   = "reopened"
     case closed     = "closed"
 
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+        self = IssueStatus(rawValue: rawValue) ?? .resolved
+    }
+
     var displayName: String {
         switch self {
         case .open:       return "Open"
