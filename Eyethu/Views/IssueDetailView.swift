@@ -301,17 +301,19 @@ struct IssueDetailView: View {
                             }
                             .buttonStyle(.plain)
 
-                            Button {
-                                showDirectionsDialog = true
-                            } label: {
-                                Label("Go there", systemImage: "location.fill")
-                                    .font(.caption.weight(.semibold))
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(Color.orange.opacity(0.18), in: Capsule())
-                                    .foregroundStyle(.orange)
+                            if store.currentUser?.can("issues.update_status") == true {
+                                Button {
+                                    showDirectionsDialog = true
+                                } label: {
+                                    Label("Go there", systemImage: "location.fill")
+                                        .font(.caption.weight(.semibold))
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 8)
+                                        .background(Color.orange.opacity(0.18), in: Capsule())
+                                        .foregroundStyle(.orange)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
 
                         Button {
