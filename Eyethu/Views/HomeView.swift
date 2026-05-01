@@ -640,22 +640,51 @@ struct AlertRow: View {
     let alert: APIService.MuniAlert; let isRead: Bool
     private var severityColor: Color { switch alert.severity { case "critical": return .red; case "warning": return .orange; default: return .teal } }
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .top, spacing: 10) {
-                Circle().fill(severityColor).frame(width: 8, height: 8).padding(.top, 5)
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack {
-                        HStack(spacing: 6) { Text(alert.title).font(.system(size: 18, weight: .bold)).foregroundStyle(.primary); if !isRead { Text("NEW").font(.system(size: 9, weight: .bold)).padding(.horizontal, 7).padding(.vertical, 3).background(Color.orange, in: Capsule()) .foregroundStyle(.white) } }.foregroundStyle(.primary)
-                        Spacer(); Text(alert.createdAt.relativeFormatted).font(.system(size: 14)).foregroundStyle(.secondary)
+        HStack(alignment: .center, spacing: 12) {
+            ZStack(alignment: .topTrailing) {
+                Circle()
+                    .fill(severityColor)
+                    .frame(width: 48, height: 48)
+                    .overlay {
+                        Text(String(alert.tenantName.prefix(1)).uppercased())
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(.white)
                     }
-                    Text(alert.body).font(.system(size: 16)).foregroundStyle(.secondary).lineLimit(4).fixedSize(horizontal: false, vertical: true)
-                    Text(alert.tenantName).font(.system(size: 16, weight: .semibold)).foregroundStyle(severityColor).padding(.top, 4)
+
+                if !isRead {
+                    Circle()
+                        .fill(Color.blue)
+                        .frame(width: 13, height: 13)
+                        .overlay(Circle().stroke(Color(.systemGroupedBackground), lineWidth: 2))
                 }
             }
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Text(alert.title)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    Spacer()
+                    Text(alert.createdAt.relativeFormatted)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                }
+
+                Text(alert.body)
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+
+                Text(alert.tenantName)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(severityColor)
+                    .lineLimit(1)
+            }
         }
-        .padding(.vertical, 18)
+        .padding(.vertical, 12)
         .overlay(alignment: .bottom) {
-            Divider().padding(.leading, 18)
+            Divider().padding(.leading, 60)
         }
     }
 }
@@ -664,11 +693,48 @@ struct MessageDetailView: View {
     let alert: APIService.MuniAlert
     private var severityColor: Color { switch alert.severity { case "critical": return .red; case "warning": return .orange; default: return .teal } }
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) { Circle().fill(severityColor).frame(width: 10, height: 10); Text(alert.tenantName).font(.caption.weight(.semibold)).foregroundStyle(.secondary); Spacer(); Text(alert.createdAt.relativeFormatted).font(.caption2).foregroundStyle(.secondary) }
-            Text(alert.title).font(.system(size: 32, weight: .bold)).foregroundStyle(.primary)
-            Text(alert.body).font(.system(size: 18)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        VStack(spacing: 16) {
+            Text(alert.createdAt.relativeFormatted)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+
+            HStack(alignment: .bottom, spacing: 8) {
+                Circle()
+                    .fill(severityColor)
+                    .frame(width: 32, height: 32)
+                    .overlay {
+                        Text(String(alert.tenantName.prefix(1)).uppercased())
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 6) {
+                        Circle().fill(severityColor).frame(width: 8, height: 8)
+                        Text(alert.tenantName)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Text(alert.title)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(.primary)
+
+                    Text(alert.body)
+                        .font(.system(size: 16))
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(Color(.systemGray5), in: UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: 5, bottomTrailingRadius: 20, topTrailingRadius: 20))
+
+                Spacer(minLength: 32)
+            }
+
             Spacer(minLength: 0)
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

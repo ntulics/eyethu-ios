@@ -5,7 +5,6 @@ struct ContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedTab = 0
     @State private var selectedSection: AppSection? = .home
-    @Environment(\.openURL) private var openURL
     // Simplified report flow: one sheet
     @State private var showReportSheet = false
 
@@ -104,17 +103,6 @@ struct ContentView: View {
                     }
                 }
 
-                if let user = store.currentUser {
-                    Section("Admin") {
-                        ForEach(AdminLink.links(for: user)) { link in
-                            Button {
-                                openURL(link.url)
-                            } label: {
-                                Label(link.title, systemImage: link.systemImage)
-                            }
-                        }
-                    }
-                }
             }
             .navigationTitle("eyethu")
             .safeAreaInset(edge: .bottom) {
@@ -145,6 +133,8 @@ struct ContentView: View {
                             .navigationTitle("Map")
                             .navigationBarTitleDisplayMode(.inline)
                     }
+                case .messages:
+                    InboxView(initialTab: .messages)
                 case .profile:
                     ProfileView()
                 }
@@ -154,38 +144,6 @@ struct ContentView: View {
         }
         .navigationSplitViewStyle(.balanced)
     }
-}
-
-private struct AdminLink: Identifiable {
-    let id: String
-    let title: String
-    let path: String
-    let systemImage: String
-    let permission: String?
-    let superOnly: Bool
-
-    var url: URL {
-        APIService.appBaseURL.appending(path: path)
-    }
-
-    static func links(for user: SessionUser) -> [AdminLink] {
-        all.filter { link in
-            (!link.superOnly || user.isSuperAdmin) && (link.permission == nil || user.can(link.permission!))
-        }
-    }
-
-    private static let all: [AdminLink] = [
-        AdminLink(id: "dashboard", title: "Dashboard", path: "/admin", systemImage: "square.grid.2x2", permission: "dashboard.access", superOnly: false),
-        AdminLink(id: "admin-issues", title: "Admin Issues", path: "/admin/issues", systemImage: "exclamationmark.triangle", permission: "issues.read", superOnly: false),
-        AdminLink(id: "alerts", title: "Alerts", path: "/admin/alerts", systemImage: "bell", permission: "dashboard.access", superOnly: false),
-        AdminLink(id: "zones", title: "Zones", path: "/admin/zones", systemImage: "mappin.and.ellipse", permission: "zones.read", superOnly: false),
-        AdminLink(id: "users", title: "Users", path: "/admin/users", systemImage: "person.2", permission: "users.read", superOnly: false),
-        AdminLink(id: "login", title: "Login", path: "/admin/integrations", systemImage: "key", permission: nil, superOnly: true),
-        AdminLink(id: "email", title: "Email", path: "/admin/email", systemImage: "envelope", permission: nil, superOnly: true),
-        AdminLink(id: "whatsapp", title: "WhatsApp", path: "/admin/whatsapp", systemImage: "message", permission: "whatsapp.manage", superOnly: true),
-        AdminLink(id: "tenants", title: "Municipalities", path: "/admin/tenants", systemImage: "building.2", permission: nil, superOnly: true),
-        AdminLink(id: "roles", title: "Roles", path: "/admin/roles", systemImage: "shield", permission: nil, superOnly: true),
-    ]
 }
 
 private struct SidebarAccountCard: View {
@@ -224,12 +182,13 @@ private enum AppSection: String, CaseIterable, Identifiable {
     case home
     case issues
     case map
+    case messages
     case profile
 
     var id: String { rawValue }
 
     static var sidebarCases: [AppSection] {
-        [.home, .issues, .map]
+        [.home, .issues, .map, .messages]
     }
 
     var title: String {
@@ -237,6 +196,7 @@ private enum AppSection: String, CaseIterable, Identifiable {
         case .home: return "Home"
         case .issues: return "Issues"
         case .map: return "Map"
+        case .messages: return "Messages"
         case .profile: return "Profile"
         }
     }
@@ -246,6 +206,7 @@ private enum AppSection: String, CaseIterable, Identifiable {
         case .home: return "house.fill"
         case .issues: return "list.bullet.rectangle.fill"
         case .map: return "map.fill"
+        case .messages: return "bubble.left.and.bubble.right.fill"
         case .profile: return "person.circle.fill"
         }
     }
