@@ -79,6 +79,14 @@ actor APIService {
         return try await get(URLRequest(url: url))
     }
 
+    func addPhoto(issueId: Int, url: String) async throws -> IssuePhoto {
+        var req = URLRequest(url: baseURL.appending(path: "/api/issues/\(issueId)/photos"))
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["url": url])
+        return try await send(req)
+    }
+
     func createIssue(
         type: IssueType,
         description: String?,
@@ -316,7 +324,8 @@ actor APIService {
             let role  = userDict["role"]  as? String
         else { return nil }
         let perms = (userDict["permissions"] as? [String]) ?? []
-        return SessionUser(id: id, name: name, email: email, role: role, permissions: perms)
+        let tenantId = userDict["tenant_id"] as? Int
+        return SessionUser(id: id, name: name, email: email, role: role, tenantId: tenantId, permissions: perms)
     }
 
     // MARK: - Private helpers
@@ -367,10 +376,15 @@ struct SessionUser: Decodable {
     let name: String
     let email: String
     let role: String
+    let tenantId: Int?
     let permissions: [String]
 
     func can(_ permission: String) -> Bool {
         permissions.contains(permission)
+    }
+
+    var isSuperAdmin: Bool {
+        role == "admin" && (tenantId == nil || tenantId == 1)
     }
 }
 

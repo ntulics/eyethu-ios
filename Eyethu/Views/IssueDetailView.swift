@@ -1,5 +1,6 @@
 import SwiftUI
 import MapKit
+import UIKit
 
 private let issueWorkflowSteps = ["Received", "In Progress", "Resolved"]
 private let issueEmailSteps = ["Sent", "Delivered", "Opened"]
@@ -60,6 +61,9 @@ struct IssueDetailView: View {
     @State private var photoPage = 0
     @State private var showFullMap = false
     @State private var showDirectionsDialog = false
+    @State private var showResolvePhotoOptions = false
+    @State private var showResolveCamera = false
+    @State private var showResolveLibrary = false
 
     init(issue: Issue) {
         self.issue = issue
@@ -216,7 +220,7 @@ struct IssueDetailView: View {
                                 Menu {
                                     ForEach(IssueStatus.allCases, id: \.self) { s in
                                         Button {
-                                            updateStatus(s)
+                                            requestStatusUpdate(s)
                                         } label: {
                                             if current.status == s {
                                                 Label(s.displayName, systemImage: "checkmark")
@@ -396,14 +400,54 @@ struct IssueDetailView: View {
         .sheet(isPresented: $showShareSheet) {
             ShareSheet(items: ["\(current.type.displayName) at \(current.displayStreet)"])
         }
+        .confirmationDialog("Resolve issue", isPresented: $showResolvePhotoOptions, titleVisibility: .visible) {
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                Button("Take resolution photo") { showResolveCamera = true }
+            }
+            Button("Choose resolution photo") { showResolveLibrary = true }
+            Button("Resolve without photo") { updateStatus(.resolved) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Add a photo now if you want to show the issue has been resolved.")
+        }
+        .sheet(isPresented: $showResolveCamera) {
+            CameraPickerView { image in
+                if let data = image.jpegData(compressionQuality: 0.82) {
+                    updateStatus(.resolved, photoData: data)
+                }
+            }
+        }
+        .sheet(isPresented: $showResolveLibrary) {
+            PhotoLibraryPickerView { data in
+                updateStatus(.resolved, photoData: data)
+            }
+        }
+    }
+
+    private func requestStatusUpdate(_ status: IssueStatus) {
+        guard status != currentIssue.status else { return }
+        if status == .resolved {
+            showResolvePhotoOptions = true
+        } else {
+            updateStatus(status)
+        }
     }
 
     private func updateStatus(_ status: IssueStatus) {
+        updateStatus(status, photoData: nil)
+    }
+
+    private func updateStatus(_ status: IssueStatus, photoData: Data?) {
         guard status != currentIssue.status else { return }
         isUpdatingStatus = true
         errorMessage = nil
         Task {
             do {
+                if let photoData {
+                    let url = try await APIService.shared.uploadPhoto(photoData)
+                    _ = try await APIService.shared.addPhoto(issueId: currentIssue.id, url: url)
+                    photos = (try? await APIService.shared.fetchPhotos(issueId: currentIssue.id)) ?? photos
+                }
                 try await store.updateStatus(issue: currentIssue, status: status)
                 if let refreshed = try? await APIService.shared.fetchIssue(id: currentIssue.id) {
                     currentIssue = refreshed

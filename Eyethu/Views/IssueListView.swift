@@ -6,9 +6,7 @@ struct IssueListView: View {
     @State private var selectedType: IssueType? = nil
     @State private var searchText = ""
     @State private var showFilter = false
-    @State private var viewMode: ViewMode = .list
 
-    enum ViewMode { case list, map }
     enum EntryFilter {
         case all
         case active
@@ -36,15 +34,6 @@ struct IssueListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Map / List toggle
-            Picker("View", selection: $viewMode) {
-                Text("Map").tag(ViewMode.map)
-                Text("List").tag(ViewMode.list)
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-
             // Status filter chips
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -61,11 +50,7 @@ struct IssueListView: View {
             }
             .padding(.bottom, 8)
 
-            if viewMode == .list {
-                listContent
-            } else {
-                IssueMapView()
-            }
+            listContent
         }
         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search issues")
         .navigationTitle("Issues")
@@ -82,11 +67,6 @@ struct IssueListView: View {
         }
         .sheet(isPresented: $showFilter) {
             FilterSheet(selectedType: $selectedType)
-        }
-        .onAppear {
-            if entryFilter == .active {
-                viewMode = .list
-            }
         }
     }
 
