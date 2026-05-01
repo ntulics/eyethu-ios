@@ -226,6 +226,24 @@ struct Issue: Identifiable, Codable {
         ).trimmingCharacters(in: .whitespaces)
         return stripped.isEmpty ? addr : stripped
     }
+
+    var meaningfulDescription: String? {
+        guard let description = description?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !description.isEmpty else { return nil }
+        func normalize(_ value: String) -> String {
+            value
+                .lowercased()
+                .replacingOccurrences(of: "_", with: " ")
+                .replacingOccurrences(of: "-", with: " ")
+                .split(separator: " ")
+                .joined(separator: " ")
+        }
+        if normalize(description) == normalize(type.rawValue) ||
+            normalize(description) == normalize(type.displayName) {
+            return nil
+        }
+        return description
+    }
 }
 
 // Response shape when POST /api/issues detects a duplicate

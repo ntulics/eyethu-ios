@@ -557,7 +557,7 @@ struct IssueMapCallout: View {
                     Text(issue.displayStreet)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    if let desc = issue.description {
+                    if let desc = issue.meaningfulDescription {
                         Text(desc)
                             .font(.caption)
                             .foregroundStyle(.secondary)

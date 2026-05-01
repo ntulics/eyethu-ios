@@ -173,7 +173,7 @@ struct IssueDetailView: View {
                         }
                     }
 
-                    if let desc = current.description, !desc.isEmpty {
+                    if let desc = current.meaningfulDescription {
                         Text(desc)
                             .font(.body)
                             .foregroundStyle(.primary)
