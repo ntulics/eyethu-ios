@@ -82,16 +82,22 @@ struct ContentView: View {
         NavigationSplitView {
             List(selection: $selectedSection) {
                 Section {
-                    SidebarAccountCard(
-                        name: store.currentUser?.name ?? "Guest",
-                        subtitle: store.currentUser?.email ?? "Community member"
-                    )
+                    Button {
+                        selectedSection = .profile
+                    } label: {
+                        SidebarAccountCard(
+                            name: store.currentUser?.name ?? "Guest",
+                            subtitle: store.currentUser?.email ?? "Community member",
+                            isSelected: selectedSection == .profile
+                        )
+                    }
+                    .buttonStyle(.plain)
                     .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
                     .listRowBackground(Color.clear)
                 }
 
                 Section {
-                    ForEach(AppSection.allCases) { section in
+                    ForEach(AppSection.sidebarCases) { section in
                         Label(section.title, systemImage: section.systemImage)
                             .tag(section)
                     }
@@ -135,6 +141,7 @@ struct ContentView: View {
 private struct SidebarAccountCard: View {
     let name: String
     let subtitle: String
+    let isSelected: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -148,7 +155,7 @@ private struct SidebarAccountCard: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(name)
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(isSelected ? .blue : .primary)
                     .lineLimit(1)
                 Text(subtitle)
                     .font(.system(size: 13, weight: .medium))
@@ -158,6 +165,7 @@ private struct SidebarAccountCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
+        .background(isSelected ? Color(.systemGray5) : Color.clear, in: RoundedRectangle(cornerRadius: 18))
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
     }
 }
@@ -169,6 +177,10 @@ private enum AppSection: String, CaseIterable, Identifiable {
     case profile
 
     var id: String { rawValue }
+
+    static var sidebarCases: [AppSection] {
+        [.home, .issues, .map]
+    }
 
     var title: String {
         switch self {
