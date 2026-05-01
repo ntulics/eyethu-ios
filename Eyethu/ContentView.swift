@@ -2,11 +2,33 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var store = IssueStore()
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedTab = 0
+    @State private var selectedSection: AppSection? = .home
     // Simplified report flow: one sheet
     @State private var showReportSheet = false
 
     var body: some View {
+        Group {
+            if horizontalSizeClass == .regular {
+                iPadLayout
+            } else {
+                phoneLayout
+            }
+        }
+        .environmentObject(store)
+        .sheet(isPresented: $showReportSheet) {
+            ReportIssueView()
+                .environmentObject(store)
+                .presentationDetents(horizontalSizeClass == .regular ? [.large] : [.fraction(0.6), .large])
+                .presentationDragIndicator(.visible)
+        }
+        .task {
+            await store.restoreSession()
+        }
+    }
+
+    private var phoneLayout: some View {
         ZStack(alignment: .bottom) {
             TabView(selection: $selectedTab) {
                 HomeView()
@@ -54,16 +76,90 @@ struct ContentView: View {
             }
             .offset(y: -4)
         }
-        .environmentObject(store)
-        // Direct report form as a drawer
-        .sheet(isPresented: $showReportSheet) {
-            ReportIssueView()
-                .environmentObject(store)
-                .presentationDetents([.fraction(0.6), .large])
-                .presentationDragIndicator(.visible)
+    }
+
+    private var iPadLayout: some View {
+        NavigationSplitView {
+            List(selection: $selectedSection) {
+                Section {
+                    ForEach(AppSection.allCases) { section in
+                        Label(section.title, systemImage: section.systemImage)
+                            .tag(section)
+                    }
+                }
+
+                Section {
+                    Button {
+                        showReportSheet = true
+                    } label: {
+                        Label("Report Issue", systemImage: "plus.circle.fill")
+                            .font(.headline)
+                            .foregroundStyle(.orange)
+                    }
+                }
+            }
+            .navigationTitle("eyethu")
+            .safeAreaInset(edge: .bottom) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(store.currentUser?.name ?? "Guest")
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(1)
+                    Text(store.currentUser?.email ?? "Community member")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+                .background(.ultraThinMaterial)
+            }
+        } detail: {
+            Group {
+                switch selectedSection ?? .home {
+                case .home:
+                    HomeView()
+                case .issues:
+                    NavigationStack { IssueListView() }
+                case .map:
+                    NavigationStack {
+                        IssueMapView()
+                            .navigationTitle("Map")
+                            .navigationBarTitleDisplayMode(.inline)
+                    }
+                case .profile:
+                    ProfileView()
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(.systemGroupedBackground))
         }
-        .task {
-            await store.restoreSession()
+        .navigationSplitViewStyle(.balanced)
+    }
+}
+
+private enum AppSection: String, CaseIterable, Identifiable {
+    case home
+    case issues
+    case map
+    case profile
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .home: return "Home"
+        case .issues: return "Issues"
+        case .map: return "Map"
+        case .profile: return "Profile"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .home: return "house.fill"
+        case .issues: return "list.bullet.rectangle.fill"
+        case .map: return "map.fill"
+        case .profile: return "person.circle.fill"
         }
     }
 }
