@@ -122,10 +122,6 @@ struct IssueDetailView: View {
 
                 VStack(alignment: .leading, spacing: 16) {
 
-                    // Status Badge (Moved up)
-                    StatusBadge(status: current.status)
-                        .padding(.top, 8)
-
                     // Title + Voting Buttons
                     HStack(alignment: .center) {
                         VStack(alignment: .leading, spacing: 4) {
