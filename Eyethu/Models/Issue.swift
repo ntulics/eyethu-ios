@@ -227,6 +227,17 @@ struct Issue: Identifiable, Codable {
         return stripped.isEmpty ? addr : stripped
     }
 
+    var displayIssueNumber: String {
+        Self.displayIssueNumber(id: id, createdAt: createdAt)
+    }
+
+    static func displayIssueNumber(id: Int, createdAt: Date) -> String {
+        let components = Calendar.current.dateComponents([.year, .month], from: createdAt)
+        let year = (components.year ?? Calendar.current.component(.year, from: Date())) % 100
+        let month = components.month ?? Calendar.current.component(.month, from: Date())
+        return "\(year)\(month)\(id)"
+    }
+
     var meaningfulDescription: String? {
         guard let description = description?.trimmingCharacters(in: .whitespacesAndNewlines),
               !description.isEmpty else { return nil }
@@ -250,6 +261,7 @@ struct Issue: Identifiable, Codable {
 struct DuplicateIssueResponse: Codable {
     let duplicate: Bool
     let existingId: Int?
+    let existingCreatedAt: Date?
     let reportCount: Int?
     let alreadyCounted: Bool?
     let wideArea: Bool?
@@ -258,6 +270,7 @@ struct DuplicateIssueResponse: Codable {
     enum CodingKeys: String, CodingKey {
         case duplicate
         case existingId    = "existing_id"
+        case existingCreatedAt = "existing_created_at"
         case reportCount   = "report_count"
         case alreadyCounted = "already_counted"
         case wideArea      = "wide_area"

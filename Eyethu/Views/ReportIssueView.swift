@@ -388,7 +388,7 @@ struct ReportIssueView: View {
                 Spacer()
                 Image(systemName: "checkmark.circle.fill").font(.system(size: 50)).foregroundStyle(.green)
                 Text("Submitted!").font(.headline)
-                Text("Issue #\(issue.id) created.").font(.subheadline).foregroundStyle(.secondary)
+                Text("Issue #\(issue.displayIssueNumber) created.").font(.subheadline).foregroundStyle(.secondary)
                 Button("Done") { dismiss() }.buttonStyle(.bordered).tint(.teal)
                 Spacer()
             }
@@ -406,6 +406,9 @@ struct ReportIssueView: View {
 
     private func duplicateMessage(for duplicate: DuplicateIssueResponse) -> String {
         if let existingId = duplicate.existingId {
+            if let createdAt = duplicate.existingCreatedAt {
+                return "Issue #\(Issue.displayIssueNumber(id: existingId, createdAt: createdAt)) already exists."
+            }
             return "Issue #\(existingId) already exists."
         }
         return "You submitted a similar report recently."

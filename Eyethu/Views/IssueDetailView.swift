@@ -249,7 +249,7 @@ struct IssueDetailView: View {
 
                     // Meta grid
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
-                        MetaItem(icon: "number",      label: "#\(current.id)",                    title: "Issue ID")
+                        MetaItem(icon: "number",      label: "#\(current.displayIssueNumber)",     title: "Issue ID")
                         MetaItem(icon: "clock",       label: current.createdAt.shortFormatted,    title: "Reported")
                         if let ward = current.ward {
                             MetaItem(icon: "mappin",  label: ward,                              title: "Ward")
