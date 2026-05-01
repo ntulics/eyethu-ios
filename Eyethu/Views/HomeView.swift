@@ -9,6 +9,7 @@ enum InboxTab: String, CaseIterable, Identifiable {
 
 struct HomeView: View {
     @EnvironmentObject var store: IssueStore
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var showLogin           = false
     @State private var currentAreaName    = "Near you"
     @State private var showActiveIssues   = false
@@ -321,31 +322,33 @@ struct HomeView: View {
 
                 Spacer()
 
-                Button {
-                    inboxInitialTab = .messages
-                    showInbox = true
-                    hasUnreadAlerts = false
-                } label: {
-                    ZStack(alignment: .topTrailing) {
-                        Circle()
-                            .fill(Color.teal.opacity(0.12))
-                            .frame(width: 48, height: 48)
-                            .overlay {
-                                Image(systemName: "bubble.left.and.bubble.right")
-                                    .font(.system(size: 22, weight: .medium))
-                                    .foregroundStyle(.teal)
-                            }
-                        
-                        if hasUnreadAlerts {
+                if horizontalSizeClass != .regular {
+                    Button {
+                        inboxInitialTab = .messages
+                        showInbox = true
+                        hasUnreadAlerts = false
+                    } label: {
+                        ZStack(alignment: .topTrailing) {
                             Circle()
-                                .fill(Color.red)
-                                .frame(width: 14, height: 14)
-                                .overlay(Circle().stroke(Color(.systemGroupedBackground), lineWidth: 2))
-                                .offset(x: -2, y: 2)
+                                .fill(Color.teal.opacity(0.12))
+                                .frame(width: 48, height: 48)
+                                .overlay {
+                                    Image(systemName: "bubble.left.and.bubble.right")
+                                        .font(.system(size: 22, weight: .medium))
+                                        .foregroundStyle(.teal)
+                                }
+
+                            if hasUnreadAlerts {
+                                Circle()
+                                    .fill(Color.red)
+                                    .frame(width: 14, height: 14)
+                                    .overlay(Circle().stroke(Color(.systemGroupedBackground), lineWidth: 2))
+                                    .offset(x: -2, y: 2)
+                            }
                         }
                     }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
             .padding(.horizontal, 20)
             .padding(.top, 10)
@@ -576,6 +579,7 @@ import UserNotifications
 struct InboxView: View {
     private static let readAlertsKey = "eyethu.readAlertIds"
     let initialTab: InboxTab
+    let showsDoneButton: Bool
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTab: InboxTab
     @State private var pushStatus: UNAuthorizationStatus = .notDetermined
@@ -584,7 +588,11 @@ struct InboxView: View {
     @State private var alertsLoading = false
     @State private var selectedAlert: APIService.MuniAlert?
     @State private var readAlertIds: Set<Int> = []
-    init(initialTab: InboxTab) { self.initialTab = initialTab; _selectedTab = State(initialValue: initialTab) }
+    init(initialTab: InboxTab, showsDoneButton: Bool = true) {
+        self.initialTab = initialTab
+        self.showsDoneButton = showsDoneButton
+        _selectedTab = State(initialValue: initialTab)
+    }
     var body: some View {
         NavigationStack {
             Group {
@@ -596,7 +604,9 @@ struct InboxView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { if selectedAlert != nil { Button { selectedAlert = nil } label: { Label("Back", systemImage: "chevron.left") }.foregroundStyle(.teal) } }
-                ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() }.foregroundStyle(.teal) }
+                if showsDoneButton {
+                    ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() }.foregroundStyle(.teal) }
+                }
             }
             .safeAreaInset(edge: .top, spacing: 0) {
                 if selectedAlert == nil {

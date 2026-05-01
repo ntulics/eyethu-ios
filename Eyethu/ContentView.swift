@@ -134,7 +134,7 @@ struct ContentView: View {
                             .navigationBarTitleDisplayMode(.inline)
                     }
                 case .messages:
-                    InboxView(initialTab: .messages)
+                    InboxView(initialTab: .messages, showsDoneButton: false)
                 case .profile:
                     ProfileView()
                 }
