@@ -248,7 +248,14 @@ struct IssueDetailView: View {
                     }
 
                     // Meta grid
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.flexible(), spacing: 16, alignment: .leading),
+                            GridItem(.flexible(), spacing: 16, alignment: .leading)
+                        ],
+                        alignment: .leading,
+                        spacing: 14
+                    ) {
                         MetaItem(icon: "number",      label: "#\(current.displayIssueNumber)",     title: "Issue ID")
                         MetaItem(icon: "clock",       label: current.createdAt.shortFormatted,    title: "Reported")
                         if let ward = current.ward {
@@ -329,7 +336,8 @@ struct IssueDetailView: View {
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(20)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 20)
             }
         }
         .sheet(isPresented: $showFullMap) {
@@ -526,9 +534,12 @@ struct MetaItem: View {
                 Text(label)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(.primary)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

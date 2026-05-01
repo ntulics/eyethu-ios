@@ -97,7 +97,6 @@ struct IssueReportCategory: Identifiable, Hashable {
         IssueReportCategory(id: "power_outage", title: "Power Outage", primaryType: .powerOutage, subtypes: []),
         IssueReportCategory(id: "streetlight", title: "Streetlight", primaryType: .streetlight, subtypes: []),
         IssueReportCategory(id: "illegal_dumping", title: "Illegal Dumping", primaryType: .illegalDumping, subtypes: []),
-        IssueReportCategory(id: "traffic_lights", title: "Traffic Lights", primaryType: .trafficLights, subtypes: []),
         IssueReportCategory(id: "sewer", title: "Sewer", primaryType: .sewerBlockage, subtypes: [.sewerBlockage, .sewerLeakage]),
     ]
 }

@@ -30,7 +30,7 @@ struct ReportIssueView: View {
     @State private var submitResult: CreateIssueResult? = nil
     @State private var submitError: String? = nil
     @State private var isGeolocating = false
-    @State private var expandedCategory: IssueReportCategory? = nil
+    @State private var subcategory: IssueReportCategory? = nil
 
     private var trimmedStreetAddress: String {
         streetAddress.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -122,51 +122,50 @@ struct ReportIssueView: View {
 
     private var typeStep: some View {
         VStack(alignment: .leading, spacing: 12) {
-            stepHeader(title: "What's the issue?", subtitle: "Select a category")
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                ForEach(IssueReportCategory.all) { category in
-                    TypeCategoryCard(
-                        category: category,
-                        isSelected: category.types.contains(selectedType)
-                    ) {
-                        if category.isGrouped {
-                            withAnimation(.spring(response: 0.25)) {
-                                expandedCategory = expandedCategory?.id == category.id ? nil : category
-                                if !category.types.contains(selectedType) {
-                                    selectedType = category.primaryType
-                                }
-                            }
-                        } else {
-                            expandedCategory = nil
-                            selectedType = category.primaryType
-                            withAnimation { step = 1 }
-                        }
-                    }
+            if let category = subcategory {
+                Button {
+                    withAnimation(.spring(response: 0.25)) { subcategory = nil }
+                } label: {
+                    Label("Back", systemImage: "chevron.left")
+                        .font(.system(size: 14, weight: .semibold))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 9)
+                        .background(Color(.systemGray6), in: Capsule())
                 }
-            }
+                .buttonStyle(.plain)
 
-            if let category = expandedCategory {
-                HStack(spacing: 8) {
+                stepHeader(title: category.title, subtitle: "Select a sub issue")
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                     ForEach(category.subtypes, id: \.self) { type in
-                        Button {
+                        TypeCard(type: type, isSelected: selectedType == type) {
                             selectedType = type
-                            withAnimation { step = 1 }
-                        } label: {
-                            HStack(spacing: 6) {
-                                IssueTypeGlyph(type: type, size: 14, color: type.color)
-                                Text(type.displayName)
-                                    .font(.system(size: 12, weight: .semibold))
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(selectedType == type ? type.color.opacity(0.16) : Color(.systemGray6), in: RoundedRectangle(cornerRadius: 12))
-                            .foregroundStyle(selectedType == type ? type.color : .primary)
-                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(selectedType == type ? type.color : .clear, lineWidth: 1.5))
                         }
-                        .buttonStyle(.plain)
                     }
                 }
-                .transition(.opacity.combined(with: .move(edge: .top)))
+            } else {
+                stepHeader(title: "What's the issue?", subtitle: "Select a category")
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    ForEach(IssueReportCategory.all) { category in
+                        TypeCategoryCard(
+                            category: category,
+                            isSelected: category.types.contains(selectedType)
+                        ) {
+                            if category.isGrouped {
+                                withAnimation(.spring(response: 0.25)) {
+                                    subcategory = category
+                                    if !category.types.contains(selectedType) {
+                                        selectedType = category.primaryType
+                                    }
+                                }
+                            } else {
+                                subcategory = nil
+                                selectedType = category.primaryType
+                                withAnimation { step = 1 }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -305,10 +304,20 @@ struct ReportIssueView: View {
                     Image(systemName: "chevron.left").frame(width: 44, height: 44).background(Color(.systemGray5), in: Circle())
                 }
                 .foregroundStyle(.primary)
+            } else if subcategory != nil {
+                Button { withAnimation { subcategory = nil } } label: {
+                    Image(systemName: "chevron.left").frame(width: 44, height: 44).background(Color(.systemGray5), in: Circle())
+                }
+                .foregroundStyle(.primary)
             }
 
             Button {
-                if step < 3 { withAnimation { step += 1 } } else { submitIssue() }
+                if step == 0, subcategory != nil {
+                    withAnimation {
+                        subcategory = nil
+                        step = 1
+                    }
+                } else if step < 3 { withAnimation { step += 1 } } else { submitIssue() }
             } label: {
                 Text(isSubmitting ? "Submitting..." : (step == 3 ? "Submit" : "Next"))
                     .font(.headline)
