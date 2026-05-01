@@ -82,6 +82,15 @@ struct ContentView: View {
         NavigationSplitView {
             List(selection: $selectedSection) {
                 Section {
+                    SidebarAccountCard(
+                        name: store.currentUser?.name ?? "Guest",
+                        subtitle: store.currentUser?.email ?? "Community member"
+                    )
+                    .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
+                    .listRowBackground(Color.clear)
+                }
+
+                Section {
                     ForEach(AppSection.allCases) { section in
                         Label(section.title, systemImage: section.systemImage)
                             .tag(section)
@@ -99,20 +108,6 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("eyethu")
-            .safeAreaInset(edge: .bottom) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(store.currentUser?.name ?? "Guest")
-                        .font(.caption.weight(.semibold))
-                        .lineLimit(1)
-                    Text(store.currentUser?.email ?? "Community member")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
-                .background(.ultraThinMaterial)
-            }
         } detail: {
             Group {
                 switch selectedSection ?? .home {
@@ -134,6 +129,36 @@ struct ContentView: View {
             .background(Color(.systemGroupedBackground))
         }
         .navigationSplitViewStyle(.balanced)
+    }
+}
+
+private struct SidebarAccountCard: View {
+    let name: String
+    let subtitle: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image("BrandMark")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 46, height: 46)
+                .padding(8)
+                .background(Color.orange.opacity(0.12), in: Circle())
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(name)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Text(subtitle)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
     }
 }
 

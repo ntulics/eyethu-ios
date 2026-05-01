@@ -75,201 +75,226 @@ struct HomeView: View {
     }
 
     private var scrollContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // Header spacer
-                Color.clear
-                    .frame(height: 54)
+        GeometryReader { proxy in
+            let useDashboardGrid = proxy.size.width >= 640
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Header spacer
+                    Color.clear
+                        .frame(height: 54)
 
-                // Error banner
-                if let err = store.error {
-                    Label(err, systemImage: "wifi.slash")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
-                        .padding(.horizontal, 20)
+                    // Error banner
+                    if let err = store.error {
+                        Label(err, systemImage: "wifi.slash")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+                            .padding(.horizontal, contentHorizontalPadding(for: proxy.size.width))
+                    }
+
+                    LazyVGrid(
+                        columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: useDashboardGrid ? 2 : 1),
+                        spacing: 16
+                    ) {
+                        overviewCard
+                        activeReportsCard
+                        NationalStatsCard(store: store)
+                    }
+                    .padding(.horizontal, contentHorizontalPadding(for: proxy.size.width))
+
+                    LazyVGrid(
+                        columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: useDashboardGrid ? 2 : 1),
+                        spacing: 16
+                    ) {
+                        municipalLeaderboardCard
+                        categoriesCard
+                        recentIssuesCard
+                    }
+                    .padding(.horizontal, contentHorizontalPadding(for: proxy.size.width))
+
+                    Spacer(minLength: 120)
                 }
-
-                // Performance rings card
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack {
-                        Text("Issue Overview")
-                            .font(.system(size: 16, weight: .semibold))
-                        Spacer()
-                        NavigationLink("See all") { IssueListView() }
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(.teal)
-                    }
-
-                    HStack(spacing: 0) {
-                        RingProgressView(
-                            progress: store.activeRate,
-                            color: .red,
-                            icon: "exclamationmark.circle.fill",
-                            label: "Active"
-                        ).frame(maxWidth: .infinity)
-
-                        RingProgressView(
-                            progress: store.inProgressRate,
-                            color: .teal,
-                            icon: "arrow.triangle.2.circlepath",
-                            label: "In Progress"
-                        ).frame(maxWidth: .infinity)
-
-                        RingProgressView(
-                            progress: store.resolutionRate,
-                            color: .blue,
-                            icon: "checkmark.circle.fill",
-                            label: "Resolved"
-                        ).frame(maxWidth: .infinity)
-                    }
-                }
-                .padding(16)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-                .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
-                .padding(.horizontal, 20)
-
-                // Active Reports card
-                ActiveReportsCard(
-                    title: "Active Reports",
-                    subtitle: currentAreaName,
-                    count: store.openIssues.count,
-                    accentColor: store.issues.first?.type.color ?? .teal,
-                    lastDate: store.lastReportDate,
-                    days: store.weeklyActivity,
-                    openCount: store.openIssues.count,
-                    inProgressCount: store.inProgressIssues.count,
-                    resolvedCount: store.resolvedIssues.count,
-                    onTap: { showActiveIssues = true }
-                )
-                .padding(.horizontal, 20)
-
-                // National overview
-                NationalStatsCard(store: store)
-                    .padding(.horizontal, 20)
-
-                // Municipal Leaderboard
-                if !store.municipalityLeaderboard.isEmpty {
-                    VStack(alignment: .leading, spacing: 0) {
-                        HStack {
-                            Label("Municipal Leaderboard", systemImage: "trophy.fill")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            HStack(spacing: 10) {
-                                Label("Issues", systemImage: "circle.fill")
-                                    .font(.caption2)
-                                    .foregroundStyle(.red.opacity(0.7))
-                                Label("Resolved", systemImage: "circle.fill")
-                                    .font(.caption2)
-                                    .foregroundStyle(.green.opacity(0.8))
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 16)
-                        .padding(.bottom, 12)
-
-                        Divider().padding(.horizontal, 16)
-
-                        ForEach(store.municipalityLeaderboard) { stat in
-                            MunicipalityLeaderboardRow(stat: stat)
-                            if stat.id != store.municipalityLeaderboard.last?.id {
-                                Divider().padding(.horizontal, 16)
-                            }
-                        }
-                        .padding(.bottom, 8)
-                    }
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-                    .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
-                    .padding(.horizontal, 20)
-                }
-
-                // Categories
-                if !store.typeLeaderboard.isEmpty {
-                    VStack(alignment: .leading, spacing: 0) {
-                        HStack(alignment: .firstTextBaseline) {
-                            Label("Categories", systemImage: "square.grid.2x2.fill")
-                                .font(.system(size: 15, weight: .semibold))
-                            Spacer()
-                            Text("\(store.issues.count) Total")
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.teal)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 16)
-                        .padding(.bottom, 6)
-
-                        HStack {
-                            Text("Issue types")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            HStack(spacing: 10) {
-                                Label("Issues", systemImage: "circle.fill")
-                                    .font(.caption2)
-                                    .foregroundStyle(.red.opacity(0.7))
-                                Label("Resolved", systemImage: "circle.fill")
-                                    .font(.caption2)
-                                    .foregroundStyle(.green.opacity(0.8))
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 12)
-
-                        Divider().padding(.horizontal, 16)
-
-                        ForEach(store.typeLeaderboard) { stat in
-                            CategoryLeaderboardRow(stat: stat)
-                            if stat.id != store.typeLeaderboard.last?.id {
-                                Divider().padding(.horizontal, 16)
-                            }
-                        }
-                        .padding(.bottom, 8)
-                    }
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-                    .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
-                    .padding(.horizontal, 20)
-                }
-
-                // Recent issues
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        Label("Recent Issues", systemImage: "clock.fill")
-                            .font(.system(size: 15, weight: .semibold))
-                        Spacer()
-                        NavigationLink("View all") { IssueListView() }
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(.teal)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-                    .padding(.bottom, 8)
-
-                    Divider().padding(.horizontal, 16)
-
-                    ForEach(store.issues.prefix(3)) { issue in
-                        NavigationLink(destination: IssueDetailView(issue: issue)) {
-                            IssueRowView(issue: issue)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 6)
-                        }
-                        .buttonStyle(.plain)
-
-                        if issue.id != store.issues.prefix(3).last?.id {
-                            Divider().padding(.horizontal, 16)
-                        }
-                    }
-                    .padding(.bottom, 8)
-                }
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-                .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
-                .padding(.horizontal, 20)
-
-                Spacer(minLength: 120)
             }
         }
+    }
+
+    private func contentHorizontalPadding(for width: CGFloat) -> CGFloat {
+        width >= 900 ? 32 : 20
+    }
+
+    private var overviewCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Issue Overview")
+                    .font(.system(size: 16, weight: .semibold))
+                Spacer()
+                NavigationLink("See all") { IssueListView() }
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.teal)
+            }
+
+            HStack(spacing: 0) {
+                RingProgressView(
+                    progress: store.activeRate,
+                    color: .red,
+                    icon: "exclamationmark.circle.fill",
+                    label: "Active"
+                ).frame(maxWidth: .infinity)
+
+                RingProgressView(
+                    progress: store.inProgressRate,
+                    color: .teal,
+                    icon: "arrow.triangle.2.circlepath",
+                    label: "In Progress"
+                ).frame(maxWidth: .infinity)
+
+                RingProgressView(
+                    progress: store.resolutionRate,
+                    color: .blue,
+                    icon: "checkmark.circle.fill",
+                    label: "Resolved"
+                ).frame(maxWidth: .infinity)
+            }
+        }
+        .padding(16)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
+    }
+
+    private var activeReportsCard: some View {
+        ActiveReportsCard(
+            title: "Active Reports",
+            subtitle: currentAreaName,
+            count: store.openIssues.count,
+            accentColor: store.issues.first?.type.color ?? .teal,
+            lastDate: store.lastReportDate,
+            days: store.weeklyActivity,
+            openCount: store.openIssues.count,
+            inProgressCount: store.inProgressIssues.count,
+            resolvedCount: store.resolvedIssues.count,
+            onTap: { showActiveIssues = true }
+        )
+    }
+
+    @ViewBuilder
+    private var municipalLeaderboardCard: some View {
+        if !store.municipalityLeaderboard.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Label("Municipal Leaderboard", systemImage: "trophy.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    HStack(spacing: 10) {
+                        Label("Issues", systemImage: "circle.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.red.opacity(0.7))
+                        Label("Resolved", systemImage: "circle.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.green.opacity(0.8))
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 12)
+
+                Divider().padding(.horizontal, 16)
+
+                ForEach(store.municipalityLeaderboard) { stat in
+                    MunicipalityLeaderboardRow(stat: stat)
+                    if stat.id != store.municipalityLeaderboard.last?.id {
+                        Divider().padding(.horizontal, 16)
+                    }
+                }
+                .padding(.bottom, 8)
+            }
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+            .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
+        }
+    }
+
+    @ViewBuilder
+    private var categoriesCard: some View {
+        if !store.typeLeaderboard.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .firstTextBaseline) {
+                    Label("Categories", systemImage: "square.grid.2x2.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                    Spacer()
+                    Text("\(store.issues.count) Total")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.teal)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 6)
+
+                HStack {
+                    Text("Issue types")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    HStack(spacing: 10) {
+                        Label("Issues", systemImage: "circle.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.red.opacity(0.7))
+                        Label("Resolved", systemImage: "circle.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.green.opacity(0.8))
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+
+                Divider().padding(.horizontal, 16)
+
+                ForEach(store.typeLeaderboard) { stat in
+                    CategoryLeaderboardRow(stat: stat)
+                    if stat.id != store.typeLeaderboard.last?.id {
+                        Divider().padding(.horizontal, 16)
+                    }
+                }
+                .padding(.bottom, 8)
+            }
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+            .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
+        }
+    }
+
+    private var recentIssuesCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Label("Recent Issues", systemImage: "clock.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                Spacer()
+                NavigationLink("View all") { IssueListView() }
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.teal)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 8)
+
+            Divider().padding(.horizontal, 16)
+
+            ForEach(store.issues.prefix(3)) { issue in
+                NavigationLink(destination: IssueDetailView(issue: issue)) {
+                    IssueRowView(issue: issue)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                }
+                .buttonStyle(.plain)
+
+                if issue.id != store.issues.prefix(3).last?.id {
+                    Divider().padding(.horizontal, 16)
+                }
+            }
+            .padding(.bottom, 8)
+        }
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
     }
 
     private var topHeader: some View {
