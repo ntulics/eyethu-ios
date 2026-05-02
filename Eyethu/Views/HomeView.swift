@@ -515,11 +515,11 @@ struct NationalStatsCard: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 HStack(spacing: 6) {
-                    Image(systemName: "flag.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 26, height: 26)
-                        .background(Color(hex: "#007A4D"), in: RoundedRectangle(cornerRadius: 7))
+                    Image("icon-national-south-africa")
+                        .resizable()
+                        .renderingMode(.original)
+                        .scaledToFit()
+                        .frame(width: 28, height: 28)
                     Text("National")
                         .font(.system(size: 15, weight: .semibold))
                 }
@@ -533,14 +533,14 @@ struct NationalStatsCard: View {
             .padding(.bottom, 12)
             Divider().padding(.horizontal, 16)
             HStack(spacing: 0) {
-                NationalStatItem(value: "\(store.issues.count)", label: "Total Issues", icon: "exclamationmark.bubble.fill", color: .orange)
+                NationalStatItem(value: "\(store.issues.count)", label: "Total Issues", assetName: "icon-national-issues")
                 Divider().frame(height: 44)
-                NationalStatItem(value: "\(resolutionPct)%", label: "Resolved", icon: "checkmark.seal.fill", color: .green)
+                NationalStatItem(value: "\(resolutionPct)%", label: "Resolved", assetName: "icon-national-resolved")
                 Divider().frame(height: 44)
-                NationalStatItem(value: "\(activeMunis)", label: "Municipalities", icon: "building.2.fill", color: .teal)
+                NationalStatItem(value: "\(activeMunis)", label: "Municipalities", assetName: "icon-national-municipality")
                 if let top = topType {
                     Divider().frame(height: 44)
-                    NationalStatItem(value: top.displayName, label: "Top Issue", icon: top.icon, color: top.color)
+                    NationalStatItem(value: top.displayName, label: "Top Issue", issueType: top)
                 }
             }
             .padding(.vertical, 12)
@@ -551,10 +551,36 @@ struct NationalStatsCard: View {
 }
 
 struct NationalStatItem: View {
-    let value: String; let label: String; let icon: String; let color: Color
+    let value: String
+    let label: String
+    let assetName: String?
+    let issueType: IssueType?
+
+    init(value: String, label: String, assetName: String) {
+        self.value = value
+        self.label = label
+        self.assetName = assetName
+        self.issueType = nil
+    }
+
+    init(value: String, label: String, issueType: IssueType) {
+        self.value = value
+        self.label = label
+        self.assetName = nil
+        self.issueType = issueType
+    }
+
     var body: some View {
         VStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 16)).foregroundStyle(color)
+            if let issueType {
+                IssueTypeGlyph(type: issueType, size: 15, color: issueType.color)
+            } else if let assetName {
+                Image(assetName)
+                    .resizable()
+                    .renderingMode(.original)
+                    .scaledToFit()
+                    .frame(width: 22, height: 22)
+            }
             Text(value).font(.system(size: 13, weight: .bold, design: .rounded)).foregroundStyle(.primary).lineLimit(1).minimumScaleFactor(0.7)
             Text(label).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
         }
