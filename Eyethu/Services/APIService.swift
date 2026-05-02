@@ -195,11 +195,15 @@ actor APIService {
         let tenantName: String
         let status: String
         let createdAt: Date
+        let scheduledAt: Date?
         enum CodingKeys: String, CodingKey {
             case id, title, body, type, severity, status
             case tenantName = "tenant_name"
             case createdAt  = "created_at"
+            case scheduledAt = "scheduled_at"
         }
+
+        var displayDate: Date { scheduledAt ?? createdAt }
     }
 
     private struct AlertsResponse: Codable {

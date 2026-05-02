@@ -678,13 +678,20 @@ struct AlertRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             ZStack(alignment: .topTrailing) {
-                Circle()
+                RoundedRectangle(cornerRadius: 10)
                     .fill(severityColor)
                     .frame(width: 48, height: 48)
                     .overlay {
-                        Text(String(alert.tenantName.prefix(1)).uppercased())
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(.white)
+                        VStack(spacing: 0) {
+                            Text(alert.displayDate.formatted(.dateTime.month(.abbreviated)).uppercased())
+                                .font(.system(size: 9, weight: .black))
+                                .foregroundStyle(.white)
+                                .tracking(0.5)
+                            Text(alert.displayDate.formatted(.dateTime.day()))
+                                .font(.system(size: 22, weight: .black))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                        }
                     }
 
                 if !isRead {
@@ -736,13 +743,20 @@ struct MessageDetailView: View {
                 .padding(.top, 4)
 
             HStack(alignment: .bottom, spacing: 8) {
-                Circle()
+                RoundedRectangle(cornerRadius: 8)
                     .fill(severityColor)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 40, height: 40)
                     .overlay {
-                        Text(String(alert.tenantName.prefix(1)).uppercased())
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(.white)
+                        VStack(spacing: 0) {
+                            Text(alert.displayDate.formatted(.dateTime.month(.abbreviated)).uppercased())
+                                .font(.system(size: 8, weight: .black))
+                                .foregroundStyle(.white)
+                                .tracking(0.5)
+                            Text(alert.displayDate.formatted(.dateTime.day()))
+                                .font(.system(size: 18, weight: .black))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                        }
                     }
 
                 VStack(alignment: .leading, spacing: 8) {
